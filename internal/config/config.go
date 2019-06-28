@@ -41,6 +41,12 @@ type Config struct {
 			FrequencyMin uint32 `mapstructure:"frequency_min"`
 			FrequencyMax uint32 `mapstructure:"frequency_max"`
 		} `mapstructure:"basic_station"`
+
+		Amberlink struct {
+			Server   string `mapstructure:"server"`
+			Username string `mapstructure:"username"`
+			Password string `mapstrucure:"password"`
+		} `mapstructure:"amberlink"`
 	} `mapstructure:"backend"`
 
 	Integration struct {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/brocaar/lora-gateway-bridge/internal/backend/amberlink"
 	"github.com/brocaar/lora-gateway-bridge/internal/backend/basicstation"
 	"github.com/brocaar/lora-gateway-bridge/internal/backend/semtechudp"
 	"github.com/brocaar/lora-gateway-bridge/internal/config"
@@ -23,6 +24,8 @@ func Setup(conf config.Config) error {
 		backend, err = semtechudp.NewBackend(conf)
 	case "basic_station":
 		backend, err = basicstation.NewBackend(conf)
+	case "amberlink":
+		backend, err = amberlink.NewBackend(conf)
 	default:
 		return fmt.Errorf("unknown backend type: %s", conf.Backend.Type)
 	}
