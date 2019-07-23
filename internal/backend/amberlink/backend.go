@@ -29,7 +29,8 @@ type Backend struct {
 	gatewayStatsChan chan gw.GatewayStats
 	uplinkFrameChan  chan gw.UplinkFrame
 
-	gateways gateways
+	gateways             gateways
+	immediatelyTimeRound time.Duration
 }
 
 // NewBackend creates a new Backend.
@@ -37,9 +38,10 @@ func NewBackend(conf config.Config) (*Backend, error) {
 	b := Backend{
 		clientOpts: mqtt.NewClientOptions(),
 
-		txAckChan:        make(chan gw.DownlinkTXAck),
-		gatewayStatsChan: make(chan gw.GatewayStats),
-		uplinkFrameChan:  make(chan gw.UplinkFrame),
+		txAckChan:            make(chan gw.DownlinkTXAck),
+		gatewayStatsChan:     make(chan gw.GatewayStats),
+		uplinkFrameChan:      make(chan gw.UplinkFrame),
+		immediatelyTimeRound: conf.Backend.Amberlink.ImmediatelyTimeRound,
 
 		gateways: gateways{
 			gateways:       make(map[lorawan.EUI64]gateway),
@@ -126,6 +128,25 @@ func (b *Backend) SendDownlinkFrame(pl gw.DownlinkFrame) error {
 			}).Info("backend/amberlink: sleeping until gps epoch timestamp")
 			time.Sleep(sleepDuration)
 		}
+	}
+
+	if pl.TxInfo.Timing == gw.DownlinkTiming_IMMEDIATELY && b.immediatelyTimeRound != 0 {
+		scheduleAt := time.Now().Add(3 * time.Second).Add(b.immediatelyTimeRound).Round(b.immediatelyTimeRound)
+		sleepDuration := scheduleAt.Sub(time.Now())
+
+		if sleepDuration < 0 {
+			log.WithFields(log.Fields{
+				"schedule_at":    scheduleAt,
+				"sleep_duration": sleepDuration,
+			}).Warning("backend/amberlink: time-rounded schedule time expired")
+			return nil
+		}
+
+		log.WithFields(log.Fields{
+			"schedule_at":    scheduleAt,
+			"sleep_duration": sleepDuration,
+		}).Info("backend/amberlink: sleeping until time-rounded schedule time")
+		time.Sleep(sleepDuration)
 	}
 
 	gw, err := b.gateways.get(gatewayID)

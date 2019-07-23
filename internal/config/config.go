@@ -43,9 +43,10 @@ type Config struct {
 		} `mapstructure:"basic_station"`
 
 		Amberlink struct {
-			Server   string `mapstructure:"server"`
-			Username string `mapstructure:"username"`
-			Password string `mapstrucure:"password"`
+			Server               string        `mapstructure:"server"`
+			Username             string        `mapstructure:"username"`
+			Password             string        `mapstrucure:"password"`
+			ImmediatelyTimeRound time.Duration `mapstructure:"immediately_time_round"`
 		} `mapstructure:"amberlink"`
 	} `mapstructure:"backend"`
 
