@@ -6,6 +6,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/brocaar/lora-gateway-bridge/internal/config"
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/lorawan"
+	"github.com/brocaar/lorawan/gps"
 )
 
 // Backend implements the Amberlink MQTT backend.
@@ -93,6 +95,38 @@ func (b *Backend) Close() error {
 func (b *Backend) SendDownlinkFrame(pl gw.DownlinkFrame) error {
 	var gatewayID lorawan.EUI64
 	copy(gatewayID[:], pl.TxInfo.GatewayId)
+
+	// This fakes the GPS epoch scheduling as it is not supported by the gateway.
+	// It will look at the local system time and compares this with the (future)
+	// GPS epoch time to decide how long to sleep before it will be sent as
+	// immediately. This is not accurate!
+	if pl.TxInfo.Timing == gw.DownlinkTiming_GPS_EPOCH {
+		pl.TxInfo.Timing = gw.DownlinkTiming_IMMEDIATELY
+
+		if info := pl.TxInfo.GetGpsEpochTimingInfo(); info != nil {
+			timeSinceEpoch, err := ptypes.Duration(info.TimeSinceGpsEpoch)
+			if err != nil {
+				return errors.Wrap(err, "get time since gps epoch error")
+			}
+
+			scheduleAt := time.Time(gps.NewTimeFromTimeSinceGPSEpoch(timeSinceEpoch))
+			sleepDuration := scheduleAt.Sub(time.Now())
+
+			if sleepDuration < 0 {
+				log.WithFields(log.Fields{
+					"time_since_gps_epoch": timeSinceEpoch,
+					"sleep_duration":       sleepDuration,
+				}).Warning("backend/amberlink: gps epoch timestamp already expired")
+				return nil
+			}
+
+			log.WithFields(log.Fields{
+				"time_since_gps_epoch": timeSinceEpoch,
+				"sleep_duration":       sleepDuration,
+			}).Info("backend/amberlink: sleeping until gps epoch timestamp")
+			time.Sleep(sleepDuration)
+		}
+	}
 
 	gw, err := b.gateways.get(gatewayID)
 	if err != nil {
