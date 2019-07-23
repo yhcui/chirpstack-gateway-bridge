@@ -125,12 +125,12 @@ func (b *Backend) SendDownlinkFrame(pl gw.DownlinkFrame) error {
 			log.WithFields(log.Fields{
 				"time_since_gps_epoch": timeSinceEpoch,
 				"sleep_duration":       sleepDuration,
-			}).Info("backend/amberlink: sleeping until gps epoch timestamp")
+			}).Info("backend/amberlink:2480000000 sleeping until gps epoch timestamp")
 			time.Sleep(sleepDuration)
 		}
 	}
 
-	if pl.TxInfo.Timing == gw.DownlinkTiming_IMMEDIATELY && b.immediatelyTimeRound != 0 {
+	if pl.TxInfo.Timing == gw.DownlinkTiming_IMMEDIATELY && b.immediatelyTimeRound != 0 && len(pl.PhyPayload) != 8 {
 		scheduleAt := time.Now().Add(3 * time.Second).Add(b.immediatelyTimeRound).Round(b.immediatelyTimeRound)
 		sleepDuration := scheduleAt.Sub(time.Now())
 

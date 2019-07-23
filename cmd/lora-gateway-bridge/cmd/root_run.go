@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/brocaar/lora-gateway-bridge/internal/backend"
+	"github.com/brocaar/lora-gateway-bridge/internal/beacon"
 	"github.com/brocaar/lora-gateway-bridge/internal/config"
 	"github.com/brocaar/lora-gateway-bridge/internal/forwarder"
 	"github.com/brocaar/lora-gateway-bridge/internal/integration"
@@ -24,6 +25,7 @@ func run(cmd *cobra.Command, args []string) error {
 		printStartMessage,
 		setupBackend,
 		setupIntegration,
+		setupBeacon,
 		setupForwarder,
 		setupMetrics,
 		setupMetaData,
@@ -87,6 +89,13 @@ func setupMetrics() error {
 func setupMetaData() error {
 	if err := metadata.Setup(config.C); err != nil {
 		return errors.Wrap(err, "setup meta-data error")
+	}
+	return nil
+}
+
+func setupBeacon() error {
+	if err := beacon.Setup(config.C); err != nil {
+		return errors.Wrap(err, "setup beacon error")
 	}
 	return nil
 }

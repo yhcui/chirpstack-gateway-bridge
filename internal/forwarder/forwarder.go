@@ -5,6 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/brocaar/lora-gateway-bridge/internal/backend"
+	"github.com/brocaar/lora-gateway-bridge/internal/beacon"
 	"github.com/brocaar/lora-gateway-bridge/internal/config"
 	"github.com/brocaar/lora-gateway-bridge/internal/integration"
 	"github.com/brocaar/lora-gateway-bridge/internal/metadata"
@@ -47,6 +48,7 @@ func Setup(conf config.Config) error {
 	go forwardDownlinkTxAckLoop()
 	go forwardDownlinkFrameLoop()
 	go forwardGatewayConfigurationLoop()
+	go forwardBeaconLoop()
 
 	return nil
 }
@@ -155,5 +157,20 @@ func forwardGatewayConfigurationLoop() {
 				log.WithError(err).Error("apply gateway-configuration error")
 			}
 		}(gatewayConfig)
+	}
+}
+
+func forwardBeaconLoop() {
+	for b := range beacon.GetBeaconChannel() {
+		go func(b beacon.Beacon) {
+			downlinkFrame := gw.DownlinkFrame{
+				PhyPayload: b.Payload,
+				TxInfo:     &b.TXInfo,
+			}
+
+			if err := backend.GetBackend().SendDownlinkFrame(downlinkFrame); err != nil {
+				log.WithError(err).Error("send downlink frame error")
+			}
+		}(b)
 	}
 }

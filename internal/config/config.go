@@ -43,10 +43,16 @@ type Config struct {
 		} `mapstructure:"basic_station"`
 
 		Amberlink struct {
-			Server               string        `mapstructure:"server"`
-			Username             string        `mapstructure:"username"`
-			Password             string        `mapstrucure:"password"`
-			ImmediatelyTimeRound time.Duration `mapstructure:"immediately_time_round"`
+			Server                string        `mapstructure:"server"`
+			Username              string        `mapstructure:"username"`
+			Password              string        `mapstrucure:"password"`
+			ImmediatelyTimeRound  time.Duration `mapstructure:"immediately_time_round"`
+			BeaconGatewayIDs      []string      `mapstructure:"beacon_gateway_ids"`
+			BeaconFrequency       uint32        `mapstructure:"beacon_frequency"`
+			BeaconPower           int32         `mapstructure:"beacon_power"`
+			BeaconBandwidth       uint32        `mapstructure:"beacon_bandwidth"`
+			BeaconSpreadingFactor uint32        `mapstructure:"beacon_spreading_factor"`
+			BeaconCodeRate        string        `mapstructure:"beacon_code_rate"`
 		} `mapstructure:"amberlink"`
 	} `mapstructure:"backend"`
 
