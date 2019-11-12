@@ -77,9 +77,9 @@ type TXPK struct {
 	FDev  uint16  `json:"fdev,omitempty"`  // FSK frequency deviation (unsigned integer, in Hz)
 	NCRC  bool    `json:"ncrc,omitempty"`  // If true, disable the CRC of the physical layer (optional)
 	IPol  bool    `json:"ipol"`            // Lora modulation polarization inversion
-	Prea  uint16  `json:"prea,omitempty"`  // RF preamble size (unsigned integer)
 	Size  uint16  `json:"size"`            // RF packet payload size in bytes (unsigned integer)
 	Data  []byte  `json:"data"`            // Base64 encoded RF packet payload, padding optional
+	Prea  *int    `json:"prea,omitempty"`  // RF preamble size (unsigned integer)
 }
 
 // GetPullRespPacket returns a PullRespPacket for the given gw.DownlinkFrame.

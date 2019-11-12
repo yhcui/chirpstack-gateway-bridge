@@ -60,6 +60,7 @@ type Config struct {
 			BeaconBandwidth       uint32        `mapstructure:"beacon_bandwidth"`
 			BeaconSpreadingFactor uint32        `mapstructure:"beacon_spreading_factor"`
 			BeaconCodeRate        string        `mapstructure:"beacon_code_rate"`
+			LongPreambleLength    int           `mapstructure:"long_preamble_length"`
 		} `mapstructure:"amberlink"`
 	} `mapstructure:"backend"`
 

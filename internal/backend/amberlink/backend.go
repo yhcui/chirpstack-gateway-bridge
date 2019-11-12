@@ -31,6 +31,7 @@ type Backend struct {
 
 	gateways             gateways
 	immediatelyTimeRound time.Duration
+	longPreambleLength   int
 }
 
 // NewBackend creates a new Backend.
@@ -42,6 +43,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		gatewayStatsChan:     make(chan gw.GatewayStats),
 		uplinkFrameChan:      make(chan gw.UplinkFrame),
 		immediatelyTimeRound: conf.Backend.Amberlink.ImmediatelyTimeRound,
+		longPreambleLength:   conf.Backend.Amberlink.LongPreambleLength,
 
 		gateways: gateways{
 			gateways:       make(map[lorawan.EUI64]gateway),
@@ -130,6 +132,8 @@ func (b *Backend) SendDownlinkFrame(pl gw.DownlinkFrame) error {
 		}
 	}
 
+	// round the immediately typed downlink to the configured round time
+	// do not do this for beacons, which have length 8
 	if pl.TxInfo.Timing == gw.DownlinkTiming_IMMEDIATELY && b.immediatelyTimeRound != 0 && len(pl.PhyPayload) != 8 {
 		scheduleAt := time.Now().Add(3 * time.Second).Add(b.immediatelyTimeRound).Round(b.immediatelyTimeRound)
 		sleepDuration := scheduleAt.Sub(time.Now())
@@ -157,6 +161,10 @@ func (b *Backend) SendDownlinkFrame(pl gw.DownlinkFrame) error {
 	pullResp, err := packets.GetPullRespPacket(gw.protocolVersion, uint16(pl.Token), pl)
 	if err != nil {
 		return errors.Wrap(err, "get PullRespPacket error")
+	}
+
+	if b.longPreambleLength != 0 {
+		pullResp.Payload.TXPK.Prea = &b.longPreambleLength
 	}
 
 	bytes, err := pullResp.MarshalBinary()
