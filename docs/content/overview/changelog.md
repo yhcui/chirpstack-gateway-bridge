@@ -5,16 +5,122 @@ menu:
         parent: overview
         weight: 2
 toc: false
-description: Lists the changes per LoRa App Server release, including steps how to upgrade.
+description: Lists the changes per ChirpStack Gateway Bridge release, including steps how to upgrade.
 ---
 
 # Changelog
+
+## v3.4.1
+
+### Bugfixes
+
+* Fixes init stop script which could cause the ChirpStack Gateway Bridge to not properly stop or restart.
+
+## v3.4.0
+
+This release renames LoRa Gateway Bridge to ChirpStack Gateway Bridge.
+See the [Rename Announcement](https://www.chirpstack.io/r/rename-announcement) for more information.
+
+### Bugfixes
+
+* Fix nested read lock. ([#139](https://github.com/brocaar/lora-gateway-bridge/issues/138))
+
+## v3.3.0
+
+### Features
+
+#### Message IDs
+
+This release implements unique message IDs (both for events and commands) that
+can be used for correlation or logging purposes.
+
+#### BasicStation channel-plan configuration
+
+To make it easier to work with the [BasicStation](https://doc.sm.tc/station/)
+Packet Forwarder, this release makes it possible to configure the channel-plan
+inside the LoRa Gateway Bridge configuration file. It is no longer needed to
+configure a Gateway Profile within LoRa App Server. This means that it is also
+possible to use the LoRa Gateway Bridge with BasicStation gateways, without
+the need of installing LoRa Server and LoRa App Server.
+
+### Bugfixes
+
+## v3.2.1
+
+### Bugfixes
+
+* Fix NetID 3 & 4 filter according to the [errata](https://lora-alliance.org/resource-hub/nwkid-length-fix-type-3-and-type-4-netids-errata-lorawan-backend-10-specification) published by the LoRa Alliance.
+* Fix Basic Station bandwidth for LoRa Std channel (from kHz to Hz). ([#130](https://github.com/brocaar/chirpstack-gateway-bridge/pull/130))
+
+## v3.2.0
+
+### Features
+
+#### NetID and JoinEUI filters
+
+Configuration options have been implemented to filter uplink messages on netID
+and JoinEUI. This makes it possible to ignore messages from neighboring
+to save on bandwidth usage (e.g. when the gateway is using a cellular backhaul).
+
+#### Execute commands
+
+This feature makes it possible to execute commands on the gateway (when the
+LoRa Gateway Bridge is running on the gateway). Note: commands must be
+pre-configured in the LoRa Gateway Bridge configuration file.
+
+### Improvements
+
+#### Basic Station backend
+
+* Verify Common Name when using client certificates. ([#129](https://github.com/brocaar/chirpstack-gateway-bridge/pull/129))
+
+## v3.1.0
+
+### Features
+
+#### Azure IoT Hub X.509
+
+X.509 certificate authentication is added to the `azure_iot_hub` MQTT
+authentication option.
+
+### Improvements
+
+#### Prometheus metrics
+
+The Prometheus metrics have been improved for consistency.
+Documentation has been updated to document the metrics that are available.
+
+#### Max reconnect interval
+
+The MQTT max. reconnect interval is now a global MQTT configuration and can
+be used regardless of the MQTT authentication type.
+
+#### Lat / lon / alt = 0
+
+When the latitude, longitude and altitude are all three `0`, then LoRa Gateway
+Bridge assumes there is no GPS module / location available and it will not
+expose a location in the stats message.
+
+### Bugfixes
+
+* The CRC check has been fixed for the Semtech UDP backend.
+* Fix message buffering for QoS > 0 (on manual reconnect, the Paho library discards messages when offline).
+
+### Deprecated
+
+#### Managed gateway configuration
+
+Documentation (and configuration) references to the managed
+packet-forwarder configuration have been removed. The feature itself is still
+available and will stay available until the next major release.
+Please refer to [this forum discussion](https://forum.chirpstack.io/t/who-is-using-the-gateway-profile-how-are-you-using-it/5091)
+for more background.
 
 ## v3.0.1
 
 ### Bugfixes
 
-* Fix acquiring double read-lock (which could result in a deadlock). [#119](https://github.com/brocaar/lora-gateway-bridge/pull/119)
+* Fix acquiring double read-lock (which could result in a deadlock). [#119](https://github.com/brocaar/chirpstack-gateway-bridge/pull/119)
 
 ## v3.0.0
 
@@ -35,7 +141,7 @@ specific context data (like the internal counter).
 The downlink frame contains a `timing` field which can be either
 `IMMEDIATELY`, `DELAY` or `GPS_EPOCH`. Based on the `timing` value, an
 additional object must be given with the additional timing information.
-Refer to [Commands](https://www.loraserver.io/lora-gateway-bridge/payloads/commands/)
+Refer to [Commands](https://www.chirpstack.io/gateway-bridge/payloads/commands/)
 for more details.
 
 #### Azure IoT Hub integration
@@ -49,7 +155,7 @@ console (or API).
 
 In case the gateway does not have a GPS module, the RX time would would be
 left blank. This feature makes it possible to use the system time as a fallback.
-([#109](https://github.com/brocaar/lora-gateway-bridge/pull/109))
+([#109](https://github.com/brocaar/chirpstack-gateway-bridge/pull/109))
 
 #### Custom gateway meta-data
 
@@ -118,34 +224,34 @@ The Prometheus metrics have been updated / cleaned up.
 
 ### Bugfixes
 
-* Fix `rxpk.brd` parsing for some packet-forwarders. ([#104](https://github.com/brocaar/lora-gateway-bridge/issues/104))
+* Fix `rxpk.brd` parsing for some packet-forwarders. ([#104](https://github.com/brocaar/chirpstack-gateway-bridge/issues/104))
 
 ## v2.7.0
 
 ### Features
 
-* Environment variable based [configuration](https://www.loraserver.io/lora-gateway-bridge/install/config/) has been re-implemented.
+* Environment variable based [configuration](https://www.chirpstack.io/gateway-bridge/install/config/) has been re-implemented.
 
 ### Improvements
 
-* Remove QoS > 0 bottleneck with non-blocking MQTT publish ([#101](https://github.com/brocaar/lora-gateway-bridge/pull/101))
+* Remove QoS > 0 bottleneck with non-blocking MQTT publish ([#101](https://github.com/brocaar/chirpstack-gateway-bridge/pull/101))
 
 ### Bugfixes
 
-* Fix potential deadlock on MQTT re-connect ([#103](https://github.com/brocaar/lora-gateway-bridge/issues/103))
-* Fix logrotate issue (init based systems) ([#98](https://github.com/brocaar/lora-gateway-bridge/pull/98))
+* Fix potential deadlock on MQTT re-connect ([#103](https://github.com/brocaar/chirpstack-gateway-bridge/issues/103))
+* Fix logrotate issue (init based systems) ([#98](https://github.com/brocaar/chirpstack-gateway-bridge/pull/98))
 
 ## v2.6.2
 
 ### Bugfixes
 
-* Fix QoS backend setting regression. [#95](https://github.com/brocaar/lora-gateway-bridge/pull/95)
+* Fix QoS backend setting regression. [#95](https://github.com/brocaar/chirpstack-gateway-bridge/pull/95)
 
 ## v2.6.1
 
 ### Bugfixes
 
-* Fix corrupted gateway statistics for downlink packets. [#94](https://github.com/brocaar/lora-gateway-bridge/pull/94)
+* Fix corrupted gateway statistics for downlink packets. [#94](https://github.com/brocaar/chirpstack-gateway-bridge/pull/94)
 
 ## v2.6.0
 
@@ -184,7 +290,7 @@ or `json` marshaler as it provides better compatibility (e.g. with the iBTS gate
 To save on bandwith between the gateway and the MQTT broker (e.g. when the
 gateway uses a cellular connection), this update makes it possible to
 configure the `marshaler` for encoding / decoding the data (in
-`lora-gateway-bridge.toml`) using [Protocol Buffers](https://developers.google.com/protocol-buffers/).
+`chirpstack-gateway-bridge.toml`) using [Protocol Buffers](https://developers.google.com/protocol-buffers/).
 
 This will become the default option in LoRa Gateway Bridge v3.
 
@@ -228,7 +334,7 @@ All vendored dependencies have been updated.
 **Features:**
 
 * LoRa Gateway Bridge can now manage the packet-forwarder configuration (channels).
-  See [Send / receive data](https://www.loraserver.io/lora-gateway-bridge/use/data/) for more information.
+  See [Send / receive data](https://www.chirpstack.io/gateway-bridge/use/data/) for more information.
 
 ## 2.3.2
 
@@ -248,29 +354,29 @@ All vendored dependencies have been updated.
 **Improvements:**
 
 * MQTT topics are now configurable through the configuration file.
-  See [Configuration](https://docs.loraserver.io/lora-gateway-bridge/install/config/).
+  See [Configuration](https://docs.chirpstack.io/gateway-bridge/install/config/).
 
 ## 2.3.0
 
 **Features:**
 
 * LoRa Gateway Bridge uses a new configuration file format.
-  See [configuration](https://docs.loraserver.io/lora-gateway-bridge/install/config/) for more information.
+  See [configuration](https://docs.chirpstack.io/gateway-bridge/install/config/) for more information.
 
-* Support MQTT client certificate authentication ([#74](https://github.com/brocaar/lora-gateway-bridge/pull/74)).
+* Support MQTT client certificate authentication ([#74](https://github.com/brocaar/chirpstack-gateway-bridge/pull/74)).
 
 **Upgrade notes:**
 
 When upgrading using the `.deb` package / using `apt` or `apt-get`, your
 configuration will be automatically migrated for you. In any other case,
-please see [configuration](https://docs.loraserver.io/lora-gateway-bridge/install/config/).
+please see [configuration](https://docs.chirpstack.io/gateway-bridge/install/config/).
 
 ## 2.2.0
 
 **Features:**
 
 * LoRa Gateway Bridge now publishes TX acknowledgement messages over MQTT.
-  See [MQTT topics](https://docs.loraserver.io/lora-gateway-bridge/use/data/).
+  See [MQTT topics](https://docs.chirpstack.io/gateway-bridge/use/data/).
 
 * TX (GPS) `timeSinceGPSEpoch` field is now exposed to transmit at given
   time since GPS epoch (1980-01-06, only possible when the gateway
@@ -326,8 +432,8 @@ please see [configuration](https://docs.loraserver.io/lora-gateway-bridge/instal
 ## 2.1.1
 
 * Do not unmarshal and marshal PHYPayload on receiving / sending
-* Set FDev field when using FSK modulation ([#16](https://github.com/brocaar/lora-gateway-bridge/issues/16))
-* Omit empty time field ([#15](https://github.com/brocaar/lora-gateway-bridge/issues/16))
+* Set FDev field when using FSK modulation ([#16](https://github.com/brocaar/chirpstack-gateway-bridge/issues/16))
+* Omit empty time field ([#15](https://github.com/brocaar/chirpstack-gateway-bridge/issues/16))
 
 ## 2.1.0
 
@@ -335,7 +441,7 @@ please see [configuration](https://docs.loraserver.io/lora-gateway-bridge/instal
 
 ## 2.0.2
 
-* Rename from `lora-semtech-bridge` to `lora-gateway-bridge`
+* Rename from `lora-semtech-bridge` to `chirpstack-gateway-bridge`
 
 ## 2.0.1
 

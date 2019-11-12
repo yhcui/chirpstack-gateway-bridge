@@ -1,0 +1,3 @@
+#!/bin/bash
+
+/tmp/mdm/pktfwd/firmware/opt/chirpstack-gateway-bridge/chirpstack-gateway-bridge version

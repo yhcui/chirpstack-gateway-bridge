@@ -1,15 +1,16 @@
 package forwarder
 
 import (
+	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/brocaar/lora-gateway-bridge/internal/backend"
-	"github.com/brocaar/lora-gateway-bridge/internal/beacon"
-	"github.com/brocaar/lora-gateway-bridge/internal/config"
-	"github.com/brocaar/lora-gateway-bridge/internal/integration"
-	"github.com/brocaar/lora-gateway-bridge/internal/metadata"
-	"github.com/brocaar/loraserver/api/gw"
+	"github.com/brocaar/chirpstack-api/go/gw"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/backend"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/beacon"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/config"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/integration"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/metadata"
 	"github.com/brocaar/lorawan"
 )
 
@@ -93,12 +94,15 @@ func forwardUplinkFrameLoop() {
 	for uplinkFrame := range backend.GetBackend().GetUplinkFrameChan() {
 		go func(uplinkFrame gw.UplinkFrame) {
 			var gatewayID lorawan.EUI64
+			var uplinkID uuid.UUID
 			copy(gatewayID[:], uplinkFrame.RxInfo.GatewayId)
+			copy(uplinkID[:], uplinkFrame.RxInfo.UplinkId)
 
-			if err := integration.GetIntegration().PublishEvent(gatewayID, integration.EventUp, &uplinkFrame); err != nil {
+			if err := integration.GetIntegration().PublishEvent(gatewayID, integration.EventUp, uplinkID, &uplinkFrame); err != nil {
 				log.WithError(err).WithFields(log.Fields{
 					"gateway_id": gatewayID,
 					"event_type": integration.EventUp,
+					"uplink_id":  uplinkID,
 				}).Error("publish event error")
 			}
 		}(uplinkFrame)
@@ -109,15 +113,18 @@ func forwardGatewayStatsLoop() {
 	for stats := range backend.GetBackend().GetGatewayStatsChan() {
 		go func(stats gw.GatewayStats) {
 			var gatewayID lorawan.EUI64
+			var statsID uuid.UUID
 			copy(gatewayID[:], stats.GatewayId)
+			copy(statsID[:], stats.StatsId)
 
 			// add meta-data to stats
 			stats.MetaData = metadata.Get()
 
-			if err := integration.GetIntegration().PublishEvent(gatewayID, integration.EventStats, &stats); err != nil {
+			if err := integration.GetIntegration().PublishEvent(gatewayID, integration.EventStats, statsID, &stats); err != nil {
 				log.WithError(err).WithFields(log.Fields{
 					"gateway_id": gatewayID,
 					"event_type": integration.EventStats,
+					"stats_id":   statsID,
 				}).Error("publish event error")
 			}
 		}(stats)
@@ -130,10 +137,14 @@ func forwardDownlinkTxAckLoop() {
 			var gatewayID lorawan.EUI64
 			copy(gatewayID[:], txAck.GatewayId)
 
-			if err := integration.GetIntegration().PublishEvent(gatewayID, integration.EventAck, &txAck); err != nil {
+			var downID uuid.UUID
+			copy(downID[:], txAck.DownlinkId)
+
+			if err := integration.GetIntegration().PublishEvent(gatewayID, integration.EventAck, downID, &txAck); err != nil {
 				log.WithError(err).WithFields(log.Fields{
-					"gateway_id": gatewayID,
-					"event_type": integration.EventAck,
+					"gateway_id":  gatewayID,
+					"event_type":  integration.EventAck,
+					"downlink_id": downID,
 				}).Error("publish event error")
 			}
 		}(txAck)

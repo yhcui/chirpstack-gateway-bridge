@@ -9,14 +9,15 @@ import (
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gofrs/uuid"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/brocaar/lora-gateway-bridge/internal/config"
-	"github.com/brocaar/lora-gateway-bridge/internal/integration/mqtt/auth"
-	"github.com/brocaar/loraserver/api/gw"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/config"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/integration/mqtt/auth"
+	"github.com/brocaar/chirpstack-api/go/gw"
 	"github.com/brocaar/lorawan"
 )
 
@@ -24,13 +25,14 @@ import (
 type Backend struct {
 	sync.RWMutex
 
-	auth                     auth.Authentication
-	conn                     paho.Client
-	closed                   bool
-	clientOpts               *paho.ClientOptions
-	downlinkFrameChan        chan gw.DownlinkFrame
-	gatewayConfigurationChan chan gw.GatewayConfiguration
-	gateways                 map[lorawan.EUI64]struct{}
+	auth                          auth.Authentication
+	conn                          paho.Client
+	closed                        bool
+	clientOpts                    *paho.ClientOptions
+	downlinkFrameChan             chan gw.DownlinkFrame
+	gatewayConfigurationChan      chan gw.GatewayConfiguration
+	gatewayCommandExecRequestChan chan gw.GatewayCommandExecRequest
+	gateways                      map[lorawan.EUI64]struct{}
 
 	qos                  uint8
 	eventTopicTemplate   *template.Template
@@ -45,11 +47,12 @@ func NewBackend(conf config.Config) (*Backend, error) {
 	var err error
 
 	b := Backend{
-		qos:                      conf.Integration.MQTT.Auth.Generic.QOS,
-		clientOpts:               paho.NewClientOptions(),
-		downlinkFrameChan:        make(chan gw.DownlinkFrame),
-		gatewayConfigurationChan: make(chan gw.GatewayConfiguration),
-		gateways:                 make(map[lorawan.EUI64]struct{}),
+		qos:                           conf.Integration.MQTT.Auth.Generic.QOS,
+		clientOpts:                    paho.NewClientOptions(),
+		downlinkFrameChan:             make(chan gw.DownlinkFrame),
+		gatewayConfigurationChan:      make(chan gw.GatewayConfiguration),
+		gatewayCommandExecRequestChan: make(chan gw.GatewayCommandExecRequest),
+		gateways:                      make(map[lorawan.EUI64]struct{}),
 	}
 
 	switch conf.Integration.MQTT.Auth.Type {
@@ -118,9 +121,10 @@ func NewBackend(conf config.Config) (*Backend, error) {
 	}
 
 	b.clientOpts.SetProtocolVersion(4)
-	b.clientOpts.SetAutoReconnect(false)
+	b.clientOpts.SetAutoReconnect(true) // this is required for buffering messages in case offline!
 	b.clientOpts.SetOnConnectHandler(b.onConnected)
 	b.clientOpts.SetConnectionLostHandler(b.onConnectionLost)
+	b.clientOpts.SetMaxReconnectInterval(conf.Integration.MQTT.MaxReconnectInterval)
 
 	if err = b.auth.Init(b.clientOpts); err != nil {
 		return nil, errors.Wrap(err, "mqtt: init authentication error")
@@ -152,6 +156,11 @@ func (b *Backend) GetGatewayConfigurationChan() chan gw.GatewayConfiguration {
 	return b.gatewayConfigurationChan
 }
 
+// GetGatewayCommandExecRequestChan() returns the channel for gateway command execution.
+func (b *Backend) GetGatewayCommandExecRequestChan() chan gw.GatewayCommandExecRequest {
+	return b.gatewayCommandExecRequestChan
+}
+
 // SubscribeGateway subscribes a gateway to its topics.
 func (b *Backend) SubscribeGateway(gatewayID lorawan.EUI64) error {
 	b.Lock()
@@ -175,14 +184,8 @@ func (b *Backend) subscribeGateway(gatewayID lorawan.EUI64) error {
 		"qos":   b.qos,
 	}).Info("integration/mqtt: subscribing to topic")
 
-	err := mqttSubscribeTimer(func() error {
-		if token := b.conn.Subscribe(topic.String(), b.qos, b.handleCommand); token.Wait() && token.Error() != nil {
-			return errors.Wrap(token.Error(), "subscribe topic error")
-		}
-		return nil
-	})
-	if err != nil {
-		return err
+	if token := b.conn.Subscribe(topic.String(), b.qos, b.handleCommand); token.Wait() && token.Error() != nil {
+		return errors.Wrap(token.Error(), "subscribe topic error")
 	}
 	return nil
 }
@@ -200,14 +203,8 @@ func (b *Backend) UnsubscribeGateway(gatewayID lorawan.EUI64) error {
 		"topic": topic.String(),
 	}).Info("integration/mqtt: unsubscribe topic")
 
-	err := mqttUnsubscribeTimer(func() error {
-		if token := b.conn.Unsubscribe(topic.String()); token.Wait() && token.Error() != nil {
-			return errors.Wrap(token.Error(), "unsubscribe topic error")
-		}
-		return nil
-	})
-	if err != nil {
-		return err
+	if token := b.conn.Unsubscribe(topic.String()); token.Wait() && token.Error() != nil {
+		return errors.Wrap(token.Error(), "unsubscribe topic error")
 	}
 
 	delete(b.gateways, gatewayID)
@@ -215,10 +212,17 @@ func (b *Backend) UnsubscribeGateway(gatewayID lorawan.EUI64) error {
 }
 
 // PublishEvent publishes the given event.
-func (b *Backend) PublishEvent(gatewayID lorawan.EUI64, event string, v proto.Message) error {
-	return mqttPublishTimer(event, func() error {
-		return b.publish(gatewayID, event, v)
-	})
+func (b *Backend) PublishEvent(gatewayID lorawan.EUI64, event string, id uuid.UUID, v proto.Message) error {
+	mqttEventCounter(event).Inc()
+	idPrefix := map[string]string{
+		"up":    "uplink_",
+		"ack":   "downlink_",
+		"stats": "stats_",
+		"exec":  "exec_",
+	}
+	return b.publish(gatewayID, event, log.Fields{
+		idPrefix[event] + "id": id,
+	}, v)
 }
 
 func (b *Backend) connect() error {
@@ -230,13 +234,11 @@ func (b *Backend) connect() error {
 	}
 
 	b.conn = paho.NewClient(b.clientOpts)
+	if token := b.conn.Connect(); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
 
-	return mqttConnectTimer(func() error {
-		if token := b.conn.Connect(); token.Wait() && token.Error() != nil {
-			return token.Error()
-		}
-		return nil
-	})
+	return nil
 }
 
 // connectLoop blocks until the client is connected
@@ -253,7 +255,7 @@ func (b *Backend) connectLoop() {
 }
 
 func (b *Backend) disconnect() error {
-	mqttConnectionCounter("disconnect")
+	mqttDisconnectCounter().Inc()
 
 	b.Lock()
 	defer b.Unlock()
@@ -271,7 +273,7 @@ func (b *Backend) reconnectLoop() {
 			time.Sleep(b.auth.ReconnectAfter())
 			log.Info("mqtt: re-connect triggered")
 
-			mqttConnectionCounter("reconnect")
+			mqttReconnectCounter().Inc()
 
 			b.disconnect()
 			b.connectLoop()
@@ -280,7 +282,7 @@ func (b *Backend) reconnectLoop() {
 }
 
 func (b *Backend) onConnected(c paho.Client) {
-	mqttConnectionCounter("connected")
+	mqttConnectCounter().Inc()
 
 	b.RLock()
 	defer b.RUnlock()
@@ -301,25 +303,33 @@ func (b *Backend) onConnected(c paho.Client) {
 }
 
 func (b *Backend) onConnectionLost(c paho.Client, err error) {
-	mqttConnectionCounter("lost")
+	mqttDisconnectCounter().Inc()
 	log.WithError(err).Error("mqtt: connection error")
-	b.connectLoop()
 }
 
 func (b *Backend) handleDownlinkFrame(c paho.Client, msg paho.Message) {
-	log.WithFields(log.Fields{
-		"topic": msg.Topic(),
-	}).Info("integration/mqtt: downlink frame received")
-
 	var downlinkFrame gw.DownlinkFrame
 	if err := b.unmarshal(msg.Payload(), &downlinkFrame); err != nil {
-		log.WithError(err).Error("integration/mqtt: unmarshal downlink frame error")
+		log.WithFields(log.Fields{
+			"topic": msg.Topic(),
+		}).WithError(err).Error("integration/mqtt: unmarshal downlink frame error")
 		return
 	}
+
+	var gatewayID lorawan.EUI64
+	var downID uuid.UUID
+	copy(gatewayID[:], downlinkFrame.GetTxInfo().GetGatewayId())
+	copy(downID[:], downlinkFrame.GetDownlinkId())
+
+	log.WithFields(log.Fields{
+		"gateway_id":  gatewayID,
+		"downlink_id": downID,
+	}).Info("integration/mqtt: downlink frame received")
 
 	b.downlinkFrameChan <- downlinkFrame
 }
 
+// TODO: this feature is deprecated. Remove this in the next major release.
 func (b *Backend) handleGatewayConfiguration(c paho.Client, msg paho.Message) {
 	log.WithFields(log.Fields{
 		"topic": msg.Topic(),
@@ -334,13 +344,37 @@ func (b *Backend) handleGatewayConfiguration(c paho.Client, msg paho.Message) {
 	b.gatewayConfigurationChan <- gatewayConfig
 }
 
+func (b *Backend) handleGatewayCommandExecRequest(c paho.Client, msg paho.Message) {
+	var gatewayCommandExecRequest gw.GatewayCommandExecRequest
+	if err := b.unmarshal(msg.Payload(), &gatewayCommandExecRequest); err != nil {
+		log.WithFields(log.Fields{
+			"topic": msg.Topic(),
+		}).WithError(err).Error("integration/mqtt: unmarshal gateway command execution request error")
+		return
+	}
+
+	var gatewayID lorawan.EUI64
+	var execID uuid.UUID
+	copy(gatewayID[:], gatewayCommandExecRequest.GetGatewayId())
+	copy(execID[:], gatewayCommandExecRequest.GetExecId())
+
+	log.WithFields(log.Fields{
+		"gateway_id": gatewayID,
+		"exec_id":    execID,
+	}).Info("integration/mqtt: gateway command execution request received")
+
+	b.gatewayCommandExecRequestChan <- gatewayCommandExecRequest
+}
+
 func (b *Backend) handleCommand(c paho.Client, msg paho.Message) {
 	if strings.HasSuffix(msg.Topic(), "down") || strings.Contains(msg.Topic(), "command=down") {
-		mqttCommandCounter("down")
+		mqttCommandCounter("down").Inc()
 		b.handleDownlinkFrame(c, msg)
 	} else if strings.HasSuffix(msg.Topic(), "config") || strings.Contains(msg.Topic(), "command=config") {
-		mqttCommandCounter("config")
+		mqttCommandCounter("config").Inc()
 		b.handleGatewayConfiguration(c, msg)
+	} else if strings.HasSuffix(msg.Topic(), "exec") || strings.Contains(msg.Topic(), "command=exec") {
+		b.handleGatewayCommandExecRequest(c, msg)
 	} else {
 		log.WithFields(log.Fields{
 			"topic": msg.Topic(),
@@ -348,7 +382,7 @@ func (b *Backend) handleCommand(c paho.Client, msg paho.Message) {
 	}
 }
 
-func (b *Backend) publish(gatewayID lorawan.EUI64, event string, msg proto.Message) error {
+func (b *Backend) publish(gatewayID lorawan.EUI64, event string, fields log.Fields, msg proto.Message) error {
 	topic := bytes.NewBuffer(nil)
 	if err := b.eventTopicTemplate.Execute(topic, struct {
 		GatewayID lorawan.EUI64
@@ -362,11 +396,11 @@ func (b *Backend) publish(gatewayID lorawan.EUI64, event string, msg proto.Messa
 		return errors.Wrap(err, "marshal message error")
 	}
 
-	log.WithFields(log.Fields{
-		"topic": topic.String(),
-		"qos":   b.qos,
-		"event": event,
-	}).Info("integration/mqtt: publishing event")
+	fields["topic"] = topic.String()
+	fields["qos"] = b.qos
+	fields["event"] = event
+
+	log.WithFields(fields).Info("integration/mqtt: publishing event")
 	if token := b.conn.Publish(topic.String(), b.qos, false, bytes); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}

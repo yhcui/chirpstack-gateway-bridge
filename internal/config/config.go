@@ -10,6 +10,11 @@ type Config struct {
 		LogLevel int `mapstructure:"log_level"`
 	}
 
+	Filters struct {
+		NetIDs   []string    `mapstructure:"net_ids"`
+		JoinEUIs [][2]string `mapstructure:"join_euis"`
+	} `mapstructure:"filters"`
+
 	Backend struct {
 		Type string `mapstructure:"type"`
 
@@ -33,13 +38,15 @@ type Config struct {
 			PingInterval time.Duration `mapstructure:"ping_interval"`
 			ReadTimeout  time.Duration `mapstructure:"read_timeout"`
 			WriteTimeout time.Duration `mapstructure:"write_timeout"`
-			Filters      struct {
+			// TODO: remove Filters in the next major release, use global filters instead
+			Filters struct {
 				NetIDs   []string    `mapstructure:"net_ids"`
 				JoinEUIs [][2]string `mapstructure:"join_euis"`
 			} `mapstructure:"filters"`
-			Region       string `mapstructure:"region"`
-			FrequencyMin uint32 `mapstructure:"frequency_min"`
-			FrequencyMax uint32 `mapstructure:"frequency_max"`
+			Region        string                     `mapstructure:"region"`
+			FrequencyMin  uint32                     `mapstructure:"frequency_min"`
+			FrequencyMax  uint32                     `mapstructure:"frequency_max"`
+			Concentrators []BasicStationConcentrator `mapstructure:"concentrators"`
 		} `mapstructure:"basic_station"`
 
 		Amberlink struct {
@@ -60,23 +67,23 @@ type Config struct {
 		Marshaler string `mapstructure:"marshaler"`
 
 		MQTT struct {
-			EventTopicTemplate   string `mapstructure:"event_topic_template"`
-			CommandTopicTemplate string `mapstructure:"command_topic_template"`
+			EventTopicTemplate   string        `mapstructure:"event_topic_template"`
+			CommandTopicTemplate string        `mapstructure:"command_topic_template"`
+			MaxReconnectInterval time.Duration `mapstructure:"max_reconnect_interval"`
 
 			Auth struct {
 				Type string `mapstructure:"type"`
 
 				Generic struct {
-					Server               string        `mapstructure:"server"`
-					Username             string        `mapstructure:"username"`
-					Password             string        `mapstrucure:"password"`
-					CACert               string        `mapstructure:"ca_cert"`
-					TLSCert              string        `mapstructure:"tls_cert"`
-					TLSKey               string        `mapstructure:"tls_key"`
-					QOS                  uint8         `mapstructure:"qos"`
-					CleanSession         bool          `mapstructure:"clean_session"`
-					ClientID             string        `mapstructure:"client_id"`
-					MaxReconnectInterval time.Duration `mapstructure:"max_reconnect_interval"`
+					Server       string `mapstructure:"server"`
+					Username     string `mapstructure:"username"`
+					Password     string `mapstrucure:"password"`
+					CACert       string `mapstructure:"ca_cert"`
+					TLSCert      string `mapstructure:"tls_cert"`
+					TLSKey       string `mapstructure:"tls_key"`
+					QOS          uint8  `mapstructure:"qos"`
+					CleanSession bool   `mapstructure:"clean_session"`
+					ClientID     string `mapstructure:"client_id"`
 				} `mapstructure:"generic"`
 
 				GCPCloudIoTCore struct {
@@ -91,10 +98,12 @@ type Config struct {
 
 				AzureIoTHub struct {
 					DeviceConnectionString string        `mapstructure:"device_connection_string"`
-					DeviceID               string        `mapstructure:"-"`
-					Hostname               string        `mapstructure:"-"`
+					DeviceID               string        `mapstructure:"device_id"`
+					Hostname               string        `mapstructure:"hostname"`
 					DeviceKey              string        `mapstructure:"-"`
 					SASTokenExpiration     time.Duration `mapstructure:"sas_token_expiration"`
+					TLSCert                string        `mapstructure:"tls_cert"`
+					TLSKey                 string        `mapstructure:"tls_key"`
 				} `mapstructure:"azure_iot_hub"`
 			} `mapstructure:"auth"`
 		} `mapstructure:"mqtt"`
@@ -115,6 +124,37 @@ type Config struct {
 			Commands             map[string]string `mapstructure:"commands"`
 		} `mapstructure:"dynamic"`
 	} `mapstructure:"meta_data"`
+
+	Commands struct {
+		Commands map[string]struct {
+			MaxExecutionDuration time.Duration `mapstructure:"max_execution_duration"`
+			Command              string        `mapstructure:"command"`
+		} `mapstructure:"commands"`
+	} `mapstructure:"commands"`
+}
+
+// BasicStationConcentrator holds the configuration for a BasicStation concentrator.
+type BasicStationConcentrator struct {
+	MultiSF BasicStationConcentratorMultiSF `mapstructure:"multi_sf"`
+	LoRaSTD BasicStationConcentratorLoRaSTD `mapstructure:"lora_std"`
+	FSK     BasicStationConcentratorFSK     `mapstructure:"fsk"`
+}
+
+// BasicStationConcentratorMultiSF holds the multi-SF channels.
+type BasicStationConcentratorMultiSF struct {
+	Frequencies []uint32 `mapstructure:"frequencies"`
+}
+
+// BasicStationConcentratorLoRaSTD holds the LoRa STD config.
+type BasicStationConcentratorLoRaSTD struct {
+	Frequency       uint32 `mapstructure:"frequency"`
+	Bandwidth       uint32 `mapstrcuture:"bandwidth"`
+	SpreadingFactor uint32 `mapstructure:"spreading_factor"`
+}
+
+// BasicStationConcentratorFSK holds the FSK config.
+type BasicStationConcentratorFSK struct {
+	Frequency uint32 `mapstructure:"frequency"`
 }
 
 // C holds the global configuration.

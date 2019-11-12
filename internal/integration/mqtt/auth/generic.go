@@ -7,17 +7,16 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/pkg/errors"
 
-	"github.com/brocaar/lora-gateway-bridge/internal/config"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/config"
 )
 
 // GenericAuthentication implements a generic MQTT authentication.
 type GenericAuthentication struct {
-	server               string
-	username             string
-	password             string
-	cleanSession         bool
-	clientID             string
-	maxReconnectInterval time.Duration
+	server       string
+	username     string
+	password     string
+	cleanSession bool
+	clientID     string
 
 	tlsConfig *tls.Config
 }
@@ -36,12 +35,11 @@ func NewGenericAuthentication(conf config.Config) (Authentication, error) {
 	return &GenericAuthentication{
 		tlsConfig: tlsConfig,
 
-		server:               conf.Integration.MQTT.Auth.Generic.Server,
-		username:             conf.Integration.MQTT.Auth.Generic.Username,
-		password:             conf.Integration.MQTT.Auth.Generic.Password,
-		cleanSession:         conf.Integration.MQTT.Auth.Generic.CleanSession,
-		clientID:             conf.Integration.MQTT.Auth.Generic.ClientID,
-		maxReconnectInterval: conf.Integration.MQTT.Auth.Generic.MaxReconnectInterval,
+		server:       conf.Integration.MQTT.Auth.Generic.Server,
+		username:     conf.Integration.MQTT.Auth.Generic.Username,
+		password:     conf.Integration.MQTT.Auth.Generic.Password,
+		cleanSession: conf.Integration.MQTT.Auth.Generic.CleanSession,
+		clientID:     conf.Integration.MQTT.Auth.Generic.ClientID,
 	}, nil
 }
 
@@ -52,7 +50,6 @@ func (a *GenericAuthentication) Init(opts *mqtt.ClientOptions) error {
 	opts.SetPassword(a.password)
 	opts.SetCleanSession(a.cleanSession)
 	opts.SetClientID(a.clientID)
-	opts.SetMaxReconnectInterval(a.maxReconnectInterval)
 
 	if a.tlsConfig != nil {
 		opts.SetTLSConfig(a.tlsConfig)

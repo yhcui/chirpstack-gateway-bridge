@@ -23,7 +23,7 @@ It is compatible with:
 When the `semtech_udp` backend has been enabled, make sure your packet-forwarder
 `global_conf.json` or `local_conf.json` is configured correctly, under `gateway_conf`,
 the `server_address`, `serv_port_up` and `serv_port_down` must be configured so
-that data is forwarded to the LoRa Gateway Bridge instance.
+that data is forwarded to the ChirpStack Gateway Bridge instance.
 
 {{<highlight text>}}
 "gateway_conf": {
@@ -37,31 +37,31 @@ that data is forwarded to the LoRa Gateway Bridge instance.
 
 ## Deployment
 
-The LoRa Gateway Bridge can be deployed either on the gateway (recommended)
+The ChirpStack Gateway Bridge can be deployed either on the gateway (recommended)
 and "in the cloud". In the latter case, multiple gateways can connect to the
-same LoRa Gateway Bridge instance.
+same ChirpStack Gateway Bridge instance.
 
-When the LoRa Gateway Bridge is deployed on the gateway, you will benefit from
+When the ChirpStack Gateway Bridge is deployed on the gateway, you will benefit from
 the MQTT authentication / authorization layer and optional TLS.
 
-## Packet-forwarder re-configuration over MQTT
+## Prometheus metrics
 
-The Semtech UDP backend supports the re-configuration of the packet-forwarder
-over MQTT using the `config` [Commands]({{<ref "payloads/commands.md">}}).
+The Semtech UDP packet-forwarder backend exposes several [Prometheus](https://prometheus.io/)
+metrics for monitoring.
 
-This works as follow:
+### backend_semtechudp_udp_sent_count
 
-* The LoRa Gateway Bridge will periodically send `stats` [Events]({{<relref "payloads/events.md">}})
-  containing the current configuration version.
-* [LoRa Server](/loraserver/) processes these stats events and when a _Gateway Profile_
-  is associated with the gateway, it will compare the configuration version.
-* In case the _Gateway Profile_ version is newer, it will send a `config`
-  command to the LoRa Gateway Bridge.
-* LoRa Gateway Bridge will then read the `base_file`, update it and writes it
-  to the `output_file`.
-* It then restarts the packet-forwarder using the `restart_command` causing the
-  packet-forwarder to reload its configuration.
+The number of UDP packets sent by the backend (per packet_type).
 
-For the above to work, you must configure the _Mandaged packet-forwarder configuration_
-section in the `lora-gateway-bridge.toml`.
 
+### backend_semtechudp_udp_received_count
+
+The number of UDP packets received by the backend (per packet_type).
+
+### backend_semtechudp_gateway_connect_count
+
+The number of gateway connections received by the backend.
+
+### backend_semtechudp_gateway_disconnect_count
+
+The number of gateways that disconnected from the backend.

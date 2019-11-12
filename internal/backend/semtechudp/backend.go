@@ -1,7 +1,9 @@
 package semtechudp
 
 import (
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,9 +14,10 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/brocaar/lora-gateway-bridge/internal/backend/semtechudp/packets"
-	"github.com/brocaar/lora-gateway-bridge/internal/config"
-	"github.com/brocaar/loraserver/api/gw"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/backend/semtechudp/packets"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/config"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/filters"
+	"github.com/brocaar/chirpstack-api/go/gw"
 	"github.com/brocaar/lorawan"
 )
 
@@ -36,6 +39,11 @@ type pfConfiguration struct {
 type Backend struct {
 	sync.RWMutex
 
+	// tokenMap stores the token to UUID mapping. This should take ~ 1MB of
+	// memory. Optionaly this could be optimized by letting keys expire after
+	// a given time.
+	tokenMap map[uint16][]byte
+
 	downlinkTXAckChan chan gw.DownlinkTXAck
 	uplinkFrameChan   chan gw.UplinkFrame
 	gatewayStatsChan  chan gw.GatewayStats
@@ -47,6 +55,7 @@ type Backend struct {
 	gateways       gateways
 	fakeRxTime     bool
 	configurations []pfConfiguration
+	skipCRCCheck   bool
 }
 
 // NewBackend creates a new backend.
@@ -73,7 +82,9 @@ func NewBackend(conf config.Config) (*Backend, error) {
 			connectChan:    make(chan lorawan.EUI64),
 			disconnectChan: make(chan lorawan.EUI64),
 		},
-		fakeRxTime: conf.Backend.SemtechUDP.FakeRxTime,
+		fakeRxTime:   conf.Backend.SemtechUDP.FakeRxTime,
+		skipCRCCheck: conf.Backend.SemtechUDP.SkipCRCCheck,
+		tokenMap:     make(map[uint16][]byte),
 	}
 
 	for _, pfConf := range conf.Backend.SemtechUDP.Configuration {
@@ -164,8 +175,24 @@ func (b *Backend) GetDisconnectChan() chan lorawan.EUI64 {
 
 // SendDownlinkFrame sends the given downlink frame to the gateway.
 func (b *Backend) SendDownlinkFrame(frame gw.DownlinkFrame) error {
+	// mutex is needed in order to write to tokenMap
+	b.Lock()
+	defer b.Unlock()
+
+	// if Token == 0, generate it in order to be backwards compatible.
+	if frame.Token == 0 {
+		tokenB := make([]byte, 2)
+		if _, err := rand.Read(tokenB); err != nil {
+			return errors.Wrap(err, "read random bytes error")
+		}
+		frame.Token = uint32(binary.BigEndian.Uint16(tokenB))
+	}
+
+	// store token to UUID mapping
+	b.tokenMap[uint16(frame.Token)] = frame.DownlinkId
+
 	var gatewayID lorawan.EUI64
-	copy(gatewayID[:], frame.TxInfo.GatewayId)
+	copy(gatewayID[:], frame.GetTxInfo().GetGatewayId())
 
 	gw, err := b.gateways.get(gatewayID)
 	if err != nil {
@@ -192,8 +219,6 @@ func (b *Backend) SendDownlinkFrame(frame gw.DownlinkFrame) error {
 // ApplyConfiguration applies the given configuration to the gateway
 // (packet-forwarder).
 func (b *Backend) ApplyConfiguration(config gw.GatewayConfiguration) error {
-	eventCounter("configuration")
-
 	var gatewayID lorawan.EUI64
 	copy(gatewayID[:], config.GatewayId)
 
@@ -207,7 +232,7 @@ func (b *Backend) ApplyConfiguration(config gw.GatewayConfiguration) error {
 	b.Unlock()
 
 	if pfConfig == nil {
-		return errGatewayDoesNotExist
+		return nil
 	}
 
 	return b.applyConfiguration(*pfConfig, config)
@@ -315,7 +340,6 @@ func (b *Backend) sendPackets() error {
 			"protocol_version": p.data[0],
 		}).Debug("backend/semtechudp: sending udp packet to gateway")
 
-		udpWriteCounter(pt.String())
 		_, err = b.conn.WriteToUDP(p.data, p.addr)
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -324,6 +348,8 @@ func (b *Backend) sendPackets() error {
 				"protocol_version": p.data[0],
 			}).WithError(err).Error("backend/semtechudp: write to udp error")
 		}
+
+		udpWriteCounter(pt.String()).Inc()
 	}
 	return nil
 }
@@ -346,7 +372,7 @@ func (b *Backend) handlePacket(up udpPacket) error {
 		"protocol_version": up.data[0],
 	}).Debug("backend/semtechudp: received udp packet from gateway")
 
-	udpReadCounter(pt.String())
+	udpReadCounter(pt.String()).Inc()
 
 	switch pt {
 	case packets.PushData:
@@ -396,16 +422,20 @@ func (b *Backend) handleTXACK(up udpPacket) error {
 		return err
 	}
 
+	downID := b.tokenMap[p.RandomToken]
+
 	if p.Payload != nil && p.Payload.TXPKACK.Error != "" && p.Payload.TXPKACK.Error != "NONE" {
 		b.downlinkTXAckChan <- gw.DownlinkTXAck{
-			GatewayId: p.GatewayMAC[:],
-			Token:     uint32(p.RandomToken),
-			Error:     p.Payload.TXPKACK.Error,
+			GatewayId:  p.GatewayMAC[:],
+			Token:      uint32(p.RandomToken),
+			DownlinkId: downID,
+			Error:      p.Payload.TXPKACK.Error,
 		}
 	} else {
 		b.downlinkTXAckChan <- gw.DownlinkTXAck{
-			GatewayId: p.GatewayMAC[:],
-			Token:     uint32(p.RandomToken),
+			GatewayId:  p.GatewayMAC[:],
+			Token:      uint32(p.RandomToken),
+			DownlinkId: downID,
 		}
 	}
 
@@ -454,7 +484,7 @@ func (b *Backend) handlePushData(up udpPacket) error {
 	}
 
 	// uplink frames
-	uplinkFrames, err := p.GetUplinkFrames(b.fakeRxTime)
+	uplinkFrames, err := p.GetUplinkFrames(b.skipCRCCheck, b.fakeRxTime)
 	if err != nil {
 		return errors.Wrap(err, "get uplink frames error")
 	}
@@ -465,7 +495,6 @@ func (b *Backend) handlePushData(up udpPacket) error {
 
 func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
 	// set configuration version, if available
-
 	for _, c := range b.configurations {
 		if gatewayID == c.gatewayID {
 			stats.ConfigVersion = c.currentVersion
@@ -477,7 +506,13 @@ func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
 
 func (b *Backend) handleUplinkFrames(uplinkFrames []gw.UplinkFrame) error {
 	for i := range uplinkFrames {
-		b.uplinkFrameChan <- uplinkFrames[i]
+		if filters.MatchFilters(uplinkFrames[i].PhyPayload) {
+			b.uplinkFrameChan <- uplinkFrames[i]
+		} else {
+			log.WithFields(log.Fields{
+				"data_base64": base64.StdEncoding.EncodeToString(uplinkFrames[i].PhyPayload),
+			}).Debug("backend/semtechudp: frame dropped because of configured filters")
+		}
 	}
 
 	return nil

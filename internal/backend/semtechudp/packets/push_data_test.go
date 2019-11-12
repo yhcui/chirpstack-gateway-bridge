@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/brocaar/loraserver/api/common"
-	"github.com/brocaar/loraserver/api/gw"
+	"github.com/brocaar/chirpstack-api/go/common"
+	"github.com/brocaar/chirpstack-api/go/gw"
 	"github.com/brocaar/lorawan"
 )
 
@@ -47,6 +47,7 @@ func TestPushDataTest(t *testing.T) {
 
 func TestGetGatewayStats(t *testing.T) {
 	assert := assert.New(t)
+
 	lat := float64(1.123)
 	long := float64(2.123)
 	alti := int32(33)
@@ -74,9 +75,9 @@ func TestGetGatewayStats(t *testing.T) {
 				Payload: PushDataPayload{
 					Stat: &Stat{
 						Time: ecNow,
-						Long: &long,
-						Lati: &lat,
-						Alti: &alti,
+						Long: long,
+						Lati: lat,
+						Alti: alti,
 						RXNb: 1,
 						RXOK: 2,
 						RXFW: 3,
@@ -131,6 +132,12 @@ func TestGetGatewayStats(t *testing.T) {
 	for _, test := range testTable {
 		s, err := test.PushDataPacket.GetGatewayStats()
 		assert.Nil(err)
+
+		if s != nil {
+			assert.Len(s.StatsId, 16)
+			s.StatsId = nil
+		}
+
 		assert.Equal(test.GatewayStats, s)
 	}
 }
@@ -149,6 +156,7 @@ func TestGetUplinkFrame(t *testing.T) {
 		Name           string
 		PushDataPacket PushDataPacket
 		UplinkFrames   []gw.UplinkFrame
+		SkipCRCCheck   bool
 	}{
 		{
 			Name: "no payload",
@@ -157,6 +165,89 @@ func TestGetUplinkFrame(t *testing.T) {
 				Payload:         PushDataPayload{},
 			},
 			UplinkFrames: nil,
+		},
+		{
+			Name: "uplink with invalid crc",
+			PushDataPacket: PushDataPacket{
+				GatewayMAC:      lorawan.EUI64{1, 2, 3, 4, 5, 6, 7, 8},
+				ProtocolVersion: ProtocolVersion2,
+				Payload: PushDataPayload{
+					RXPK: []RXPK{
+						{
+							Time: &ctNow,
+							Tmst: 1000000,
+							Freq: 868.3,
+							Brd:  2,
+							Chan: 1,
+							RFCh: 3,
+							Stat: -1,
+							Modu: "LORA",
+							DatR: DatR{LoRa: "SF12BW500"},
+							CodR: "4/5",
+							RSSI: -60,
+							LSNR: 5.5,
+							Size: 5,
+							Data: []byte{1, 2, 3, 4, 5},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:         "uplink with invalid crc - skip crc check",
+			SkipCRCCheck: true,
+			PushDataPacket: PushDataPacket{
+				GatewayMAC:      lorawan.EUI64{1, 2, 3, 4, 5, 6, 7, 8},
+				ProtocolVersion: ProtocolVersion2,
+				Payload: PushDataPayload{
+					RXPK: []RXPK{
+						{
+							Time: &ctNow,
+							Tmst: 1000000,
+							Freq: 868.3,
+							Brd:  2,
+							Chan: 1,
+							RFCh: 3,
+							Stat: -1,
+							Modu: "LORA",
+							DatR: DatR{LoRa: "SF12BW500"},
+							CodR: "4/5",
+							RSSI: -60,
+							LSNR: 5.5,
+							Size: 5,
+							Data: []byte{1, 2, 3, 4, 5},
+						},
+					},
+				},
+			},
+			UplinkFrames: []gw.UplinkFrame{
+				{
+					PhyPayload: []byte{1, 2, 3, 4, 5},
+					TxInfo: &gw.UplinkTXInfo{
+						Frequency:  868300000,
+						Modulation: common.Modulation_LORA,
+						ModulationInfo: &gw.UplinkTXInfo_LoraModulationInfo{
+							LoraModulationInfo: &gw.LoRaModulationInfo{
+								Bandwidth:             500,
+								SpreadingFactor:       12,
+								CodeRate:              "4/5",
+								PolarizationInversion: false,
+							},
+						},
+					},
+					RxInfo: &gw.UplinkRXInfo{
+						GatewayId: []byte{1, 2, 3, 4, 5, 6, 7, 8},
+						Time:      pbTime,
+						Rssi:      -60,
+						LoraSnr:   5.5,
+						Channel:   1,
+						RfChain:   3,
+						Board:     2,
+						Antenna:   0,
+						Context:   []byte{0x00, 0x0f, 0x42, 0x40},
+					},
+				},
+			},
 		},
 		{
 			Name: "uplink with gps time",
@@ -327,8 +418,14 @@ func TestGetUplinkFrame(t *testing.T) {
 	for _, test := range testTable {
 		t.Run(test.Name, func(t *testing.T) {
 			assert := require.New(t)
-			f, err := test.PushDataPacket.GetUplinkFrames(false)
+			f, err := test.PushDataPacket.GetUplinkFrames(test.SkipCRCCheck, false)
 			assert.Nil(err)
+
+			for _, ff := range f {
+				assert.Len(ff.RxInfo.UplinkId, 16)
+				ff.RxInfo.UplinkId = nil
+			}
+
 			assert.Equal(test.UplinkFrames, f)
 		})
 	}

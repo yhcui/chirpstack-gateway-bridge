@@ -10,16 +10,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/brocaar/lora-gateway-bridge/internal/backend/semtechudp/packets"
-	"github.com/brocaar/lora-gateway-bridge/internal/config"
-	"github.com/brocaar/loraserver/api/common"
-	"github.com/brocaar/loraserver/api/gw"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/backend/semtechudp/packets"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/config"
+	"github.com/brocaar/chirpstack-api/go/common"
+	"github.com/brocaar/chirpstack-api/go/gw"
 	"github.com/brocaar/lorawan"
 )
 
@@ -178,6 +179,10 @@ func (ts *BackendTestSuite) TestTXAck() {
 	for _, test := range testTable {
 		ts.T().Run(test.Name, func(t *testing.T) {
 			assert := require.New(t)
+			id, err := uuid.NewV4()
+			assert.NoError(err)
+
+			ts.backend.tokenMap[12345] = id[:]
 
 			b, err := test.GatewayPacket.MarshalBinary()
 			assert.NoError(err)
@@ -185,6 +190,9 @@ func (ts *BackendTestSuite) TestTXAck() {
 			assert.NoError(err)
 
 			ack := <-ts.backend.GetDownlinkTXAckChan()
+			assert.Equal(id[:], ack.DownlinkId)
+			ack.DownlinkId = nil
+
 			assert.Equal(test.BackendPacket, ack)
 		})
 	}
@@ -208,7 +216,7 @@ func (ts *BackendTestSuite) TestPushData() {
 		UplinkFrames  []gw.UplinkFrame
 	}{
 		{
-			Name: "stats",
+			Name: "stats with location",
 			GatewayPacket: packets.PushDataPacket{
 				ProtocolVersion: packets.ProtocolVersion2,
 				RandomToken:     1234,
@@ -216,9 +224,9 @@ func (ts *BackendTestSuite) TestPushData() {
 				Payload: packets.PushDataPayload{
 					Stat: &packets.Stat{
 						Time: packets.ExpandedTime(now.UTC()),
-						Lati: &latitude,
-						Long: &longitude,
-						Alti: &altitude,
+						Lati: latitude,
+						Long: longitude,
+						Alti: altitude,
 						RXNb: 1,
 						RXOK: 2,
 						RXFW: 3,
@@ -237,6 +245,33 @@ func (ts *BackendTestSuite) TestPushData() {
 					Altitude:  123,
 					Source:    common.LocationSource_GPS,
 				},
+				RxPacketsReceived:   1,
+				RxPacketsReceivedOk: 2,
+				TxPacketsReceived:   4,
+				TxPacketsEmitted:    5,
+			},
+		},
+		{
+			Name: "stats without location",
+			GatewayPacket: packets.PushDataPacket{
+				ProtocolVersion: packets.ProtocolVersion2,
+				RandomToken:     1234,
+				GatewayMAC:      [8]byte{1, 2, 3, 4, 5, 6, 7, 8},
+				Payload: packets.PushDataPayload{
+					Stat: &packets.Stat{
+						Time: packets.ExpandedTime(now.UTC()),
+						RXNb: 1,
+						RXOK: 2,
+						RXFW: 3,
+						ACKR: 33.3,
+						DWNb: 4,
+						TXNb: 5,
+					},
+				},
+			},
+			Stats: &gw.GatewayStats{
+				GatewayId:           []byte{1, 2, 3, 4, 5, 6, 7, 8},
+				Time:                nowPB,
 				RxPacketsReceived:   1,
 				RxPacketsReceivedOk: 2,
 				TxPacketsReceived:   4,
@@ -326,12 +361,20 @@ func (ts *BackendTestSuite) TestPushData() {
 				ip, err := getOutboundIP()
 				assert.NoError(err)
 				test.Stats.Ip = ip.String()
+
+				assert.Len(stats.StatsId, 16)
+				stats.StatsId = nil
+
 				assert.Equal(test.Stats, &stats)
 			}
 
 			// uplink frames
 			for _, uf := range test.UplinkFrames {
 				receivedUF := <-ts.backend.GetUplinkFrameChan()
+
+				assert.Len(receivedUF.RxInfo.UplinkId, 16)
+				receivedUF.RxInfo.UplinkId = nil
+
 				assert.Equal(uf, receivedUF)
 			}
 		})
@@ -340,6 +383,8 @@ func (ts *BackendTestSuite) TestPushData() {
 
 func (ts *BackendTestSuite) TestSendDownlinkFrame() {
 	assert := require.New(ts.T())
+	id, err := uuid.NewV4()
+	assert.NoError(err)
 
 	tmst := uint32(2000000)
 
@@ -385,7 +430,8 @@ func (ts *BackendTestSuite) TestSendDownlinkFrame() {
 					Antenna: 2,
 					Context: []byte{0x00, 0x0f, 0x42, 0x40},
 				},
-				Token: 123,
+				Token:      123,
+				DownlinkId: id[:],
 			},
 			GatewayPacket: packets.PullRespPacket{
 				ProtocolVersion: packets.ProtocolVersion2,
@@ -434,7 +480,8 @@ func (ts *BackendTestSuite) TestSendDownlinkFrame() {
 					},
 					Context: []byte{0x00, 0x0f, 0x42, 0x40},
 				},
-				Token: 123,
+				Token:      123,
+				DownlinkId: id[:],
 			},
 			GatewayPacket: packets.PullRespPacket{
 				ProtocolVersion: packets.ProtocolVersion2,
@@ -490,6 +537,8 @@ func (ts *BackendTestSuite) TestSendDownlinkFrame() {
 				return
 			}
 			assert.NoError(err)
+
+			assert.Equal(id[:], ts.backend.tokenMap[uint16(test.DownlinkFrame.Token)])
 
 			i, _, err := ts.gwUDPConn.ReadFromUDP(buf)
 			assert.NoError(err)
