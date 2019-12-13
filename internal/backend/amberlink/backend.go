@@ -153,17 +153,17 @@ func (b *Backend) SendDownlinkFrame(pl gw.DownlinkFrame) error {
 		time.Sleep(sleepDuration)
 	}
 
-	gw, err := b.gateways.get(gatewayID)
+	g, err := b.gateways.get(gatewayID)
 	if err != nil {
 		return errors.Wrap(err, "get gateway error")
 	}
 
-	pullResp, err := packets.GetPullRespPacket(gw.protocolVersion, uint16(pl.Token), pl)
+	pullResp, err := packets.GetPullRespPacket(g.protocolVersion, uint16(pl.Token), pl)
 	if err != nil {
 		return errors.Wrap(err, "get PullRespPacket error")
 	}
 
-	if b.longPreambleLength != 0 {
+	if pl.TxInfo.Timing == gw.DownlinkTiming_IMMEDIATELY && b.longPreambleLength != 0 {
 		pullResp.Payload.TXPK.Prea = &b.longPreambleLength
 	}
 
