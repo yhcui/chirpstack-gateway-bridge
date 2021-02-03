@@ -50,17 +50,18 @@ type Config struct {
 		} `mapstructure:"basic_station"`
 
 		Amberlink struct {
-			Server                string        `mapstructure:"server"`
-			Username              string        `mapstructure:"username"`
-			Password              string        `mapstrucure:"password"`
-			ImmediatelyTimeRound  time.Duration `mapstructure:"immediately_time_round"`
-			BeaconGatewayIDs      []string      `mapstructure:"beacon_gateway_ids"`
-			BeaconFrequency       uint32        `mapstructure:"beacon_frequency"`
-			BeaconPower           int32         `mapstructure:"beacon_power"`
-			BeaconBandwidth       uint32        `mapstructure:"beacon_bandwidth"`
-			BeaconSpreadingFactor uint32        `mapstructure:"beacon_spreading_factor"`
-			BeaconCodeRate        string        `mapstructure:"beacon_code_rate"`
-			LongPreambleLength    int           `mapstructure:"long_preamble_length"`
+			Server                     string                   `mapstructure:"server"`
+			Username                   string                   `mapstructure:"username"`
+			Password                   string                   `mapstrucure:"password"`
+			ImmediatelyTimeRound       time.Duration            `mapstructure:"immediately_time_round"`
+			BeaconGatewayIDs           []string                 `mapstructure:"beacon_gateway_ids"`
+			BeaconFrequency            uint32                   `mapstructure:"beacon_frequency"`
+			BeaconPower                int32                    `mapstructure:"beacon_power"`
+			BeaconBandwidth            uint32                   `mapstructure:"beacon_bandwidth"`
+			BeaconSpreadingFactor      uint32                   `mapstructure:"beacon_spreading_factor"`
+			BeaconCodeRate             string                   `mapstructure:"beacon_code_rate"`
+			LongPreambleLength         int                      `mapstructure:"long_preamble_length"`
+			ImmediatelyTimeRoundOffset map[string]time.Duration `mapstructure:"immediately_time_round_offset"`
 		} `mapstructure:"amberlink"`
 	} `mapstructure:"backend"`
 

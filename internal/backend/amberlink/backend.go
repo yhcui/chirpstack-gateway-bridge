@@ -32,6 +32,8 @@ type Backend struct {
 	gateways             gateways
 	immediatelyTimeRound time.Duration
 	longPreambleLength   int
+
+	immediatelyTimeRoundOffset map[lorawan.EUI64]time.Duration
 }
 
 // NewBackend creates a new Backend.
@@ -39,17 +41,31 @@ func NewBackend(conf config.Config) (*Backend, error) {
 	b := Backend{
 		clientOpts: mqtt.NewClientOptions(),
 
-		txAckChan:            make(chan gw.DownlinkTXAck),
-		gatewayStatsChan:     make(chan gw.GatewayStats),
-		uplinkFrameChan:      make(chan gw.UplinkFrame),
-		immediatelyTimeRound: conf.Backend.Amberlink.ImmediatelyTimeRound,
-		longPreambleLength:   conf.Backend.Amberlink.LongPreambleLength,
+		txAckChan:                  make(chan gw.DownlinkTXAck),
+		gatewayStatsChan:           make(chan gw.GatewayStats),
+		uplinkFrameChan:            make(chan gw.UplinkFrame),
+		immediatelyTimeRound:       conf.Backend.Amberlink.ImmediatelyTimeRound,
+		longPreambleLength:         conf.Backend.Amberlink.LongPreambleLength,
+		immediatelyTimeRoundOffset: make(map[lorawan.EUI64]time.Duration),
 
 		gateways: gateways{
 			gateways:       make(map[lorawan.EUI64]gateway),
 			connectChan:    make(chan lorawan.EUI64),
 			disconnectChan: make(chan lorawan.EUI64),
 		},
+	}
+
+	for k, v := range conf.Backend.Amberlink.ImmediatelyTimeRoundOffset {
+		var gatewayID lorawan.EUI64
+		if err := gatewayID.UnmarshalText([]byte(k)); err != nil {
+			return nil, errors.Wrap(err, "decode gateway id error")
+		}
+
+		log.WithFields(log.Fields{
+			"gateway_id": gatewayID,
+			"offset":     v,
+		}).Info("backend/amberlink: configuring gateway timing offset")
+		b.immediatelyTimeRoundOffset[gatewayID] = v
 	}
 
 	b.clientOpts.AddBroker(conf.Backend.Amberlink.Server)
@@ -136,6 +152,8 @@ func (b *Backend) SendDownlinkFrame(pl gw.DownlinkFrame) error {
 	// do not do this for beacons, which have length 8
 	if pl.TxInfo.Timing == gw.DownlinkTiming_IMMEDIATELY && b.immediatelyTimeRound != 0 && len(pl.PhyPayload) != 8 {
 		scheduleAt := time.Now().Add(3 * time.Second).Add(b.immediatelyTimeRound).Round(b.immediatelyTimeRound)
+		scheduleAt.Add(b.immediatelyTimeRoundOffset[gatewayID])
+
 		sleepDuration := scheduleAt.Sub(time.Now())
 
 		if sleepDuration < 0 {
@@ -147,8 +165,10 @@ func (b *Backend) SendDownlinkFrame(pl gw.DownlinkFrame) error {
 		}
 
 		log.WithFields(log.Fields{
-			"schedule_at":    scheduleAt,
-			"sleep_duration": sleepDuration,
+			"schedule_at":         scheduleAt,
+			"gateway_id":          gatewayID,
+			"gateway_time_offset": b.immediatelyTimeRoundOffset[gatewayID],
+			"sleep_duration":      sleepDuration,
 		}).Info("backend/amberlink: sleeping until time-rounded schedule time")
 		time.Sleep(sleepDuration)
 	}
