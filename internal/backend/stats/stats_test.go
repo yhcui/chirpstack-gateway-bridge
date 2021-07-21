@@ -49,12 +49,14 @@ func TestStats(t *testing.T) {
 				RxPacketsPerModulation: []*gw.PerModulationCount{
 					{
 						Count: 1,
-						Modulation: &gw.PerModulationCount_LoraModulationInfo{
-							LoraModulationInfo: &gw.LoRaModulationInfo{
-								Bandwidth:             125,
-								SpreadingFactor:       7,
-								CodeRate:              "3/4",
-								PolarizationInversion: false,
+						Modulation: &gw.Modulation{
+							Parameters: &gw.Modulation_Lora{
+								Lora: &gw.LoRaModulationInfo{
+									Bandwidth:             125,
+									SpreadingFactor:       7,
+									CodeRate:              "3/4",
+									PolarizationInversion: false,
+								},
 							},
 						},
 					},
@@ -89,9 +91,11 @@ func TestStats(t *testing.T) {
 				RxPacketsPerModulation: []*gw.PerModulationCount{
 					{
 						Count: 1,
-						Modulation: &gw.PerModulationCount_FskModulationInfo{
-							FskModulationInfo: &gw.FSKModulationInfo{
-								Datarate: 50000,
+						Modulation: &gw.Modulation{
+							Parameters: &gw.Modulation_Fsk{
+								Fsk: &gw.FSKModulationInfo{
+									Datarate: 50000,
+								},
 							},
 						},
 					},
@@ -128,11 +132,13 @@ func TestStats(t *testing.T) {
 				RxPacketsPerModulation: []*gw.PerModulationCount{
 					{
 						Count: 1,
-						Modulation: &gw.PerModulationCount_LrFhssModulationInfo{
-							LrFhssModulationInfo: &gw.LRFHSSModulationInfo{
-								OperatingChannelWidth: 137000,
-								CodeRate:              "4/6",
-								GridSteps:             8,
+						Modulation: &gw.Modulation{
+							Parameters: &gw.Modulation_LrFhss{
+								LrFhss: &gw.LRFHSSModulationInfo{
+									OperatingChannelWidth: 137000,
+									CodeRate:              "4/6",
+									GridSteps:             8,
+								},
 							},
 						},
 					},
@@ -200,12 +206,14 @@ func TestStats(t *testing.T) {
 				TxPacketsPerModulation: []*gw.PerModulationCount{
 					{
 						Count: 1,
-						Modulation: &gw.PerModulationCount_LoraModulationInfo{
-							LoraModulationInfo: &gw.LoRaModulationInfo{
-								Bandwidth:             125,
-								SpreadingFactor:       7,
-								CodeRate:              "3/4",
-								PolarizationInversion: false,
+						Modulation: &gw.Modulation{
+							Parameters: &gw.Modulation_Lora{
+								Lora: &gw.LoRaModulationInfo{
+									Bandwidth:             125,
+									SpreadingFactor:       7,
+									CodeRate:              "3/4",
+									PolarizationInversion: false,
+								},
 							},
 						},
 					},
@@ -258,9 +266,11 @@ func TestStats(t *testing.T) {
 				TxPacketsPerModulation: []*gw.PerModulationCount{
 					{
 						Count: 1,
-						Modulation: &gw.PerModulationCount_FskModulationInfo{
-							FskModulationInfo: &gw.FSKModulationInfo{
-								Datarate: 50000,
+						Modulation: &gw.Modulation{
+							Parameters: &gw.Modulation_Fsk{
+								Fsk: &gw.FSKModulationInfo{
+									Datarate: 50000,
+								},
 							},
 						},
 					},

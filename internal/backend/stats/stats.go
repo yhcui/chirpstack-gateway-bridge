@@ -33,15 +33,34 @@ func (c *Collector) CountUplink(uf *gw.UplinkFrame) {
 	c.Lock()
 	defer c.Unlock()
 
-	b, err := proto.Marshal(uf.GetTxInfo())
+	mod := gw.Modulation{}
+	if params := uf.GetTxInfo().GetLoraModulationInfo(); params != nil {
+		mod.Parameters = &gw.Modulation_Lora{
+			Lora: params,
+		}
+	}
+
+	if params := uf.GetTxInfo().GetFskModulationInfo(); params != nil {
+		mod.Parameters = &gw.Modulation_Fsk{
+			Fsk: params,
+		}
+	}
+
+	if params := uf.GetTxInfo().GetLrFhssModulationInfo(); params != nil {
+		mod.Parameters = &gw.Modulation_LrFhss{
+			LrFhss: params,
+		}
+	}
+
+	b, err := proto.Marshal(&mod)
 	if err != nil {
 		return
 	}
-	txInfoStr := hex.EncodeToString(b)
+	modStr := hex.EncodeToString(b)
 
 	c.rxCount = c.rxCount + 1
 	c.rxPerFreqCount[uf.GetTxInfo().Frequency] = c.rxPerFreqCount[uf.GetTxInfo().Frequency] + 1
-	c.rxPerModulationCount[txInfoStr] = c.rxPerModulationCount[txInfoStr] + 1
+	c.rxPerModulationCount[modStr] = c.rxPerModulationCount[modStr] + 1
 }
 
 func (c *Collector) CountDownlink(dl *gw.DownlinkFrame, ack *gw.DownlinkTXAck) {
@@ -57,15 +76,28 @@ func (c *Collector) CountDownlink(dl *gw.DownlinkFrame, ack *gw.DownlinkTXAck) {
 		c.txStatusCount[status] = c.txStatusCount[status] + 1
 
 		if item.Status == gw.TxAckStatus_OK && i < len(dl.Items) {
-			b, err := proto.Marshal(dl.Items[i].GetTxInfo())
+			mod := gw.Modulation{}
+			if params := dl.Items[i].GetTxInfo().GetLoraModulationInfo(); params != nil {
+				mod.Parameters = &gw.Modulation_Lora{
+					Lora: params,
+				}
+			}
+
+			if params := dl.Items[i].GetTxInfo().GetFskModulationInfo(); params != nil {
+				mod.Parameters = &gw.Modulation_Fsk{
+					Fsk: params,
+				}
+			}
+
+			b, err := proto.Marshal(&mod)
 			if err != nil {
 				return
 			}
-			txInfoStr := hex.EncodeToString(b)
+			modStr := hex.EncodeToString(b)
 
 			c.txCount = c.txCount + 1
 			c.txPerFreqCount[dl.Items[i].GetTxInfo().Frequency] = c.txPerFreqCount[dl.Items[i].GetTxInfo().Frequency] + 1
-			c.txPerModulationCount[txInfoStr] = c.txPerModulationCount[txInfoStr] + 1
+			c.txPerModulationCount[modStr] = c.txPerModulationCount[modStr] + 1
 		}
 	}
 
@@ -97,59 +129,24 @@ func (c *Collector) ExportStats() gw.GatewayStats {
 
 	for bStr, c := range c.rxPerModulationCount {
 		b, _ := hex.DecodeString(bStr)
-		var txInfo gw.UplinkTXInfo
-		_ = proto.Unmarshal(b, &txInfo)
+		var mod gw.Modulation
+		_ = proto.Unmarshal(b, &mod)
 
-		if modInfo := txInfo.GetLoraModulationInfo(); modInfo != nil {
-			stats.RxPacketsPerModulation = append(stats.RxPacketsPerModulation, &gw.PerModulationCount{
-				Count: c,
-				Modulation: &gw.PerModulationCount_LoraModulationInfo{
-					LoraModulationInfo: modInfo,
-				},
-			})
-		}
-
-		if modInfo := txInfo.GetFskModulationInfo(); modInfo != nil {
-			stats.RxPacketsPerModulation = append(stats.RxPacketsPerModulation, &gw.PerModulationCount{
-				Count: c,
-				Modulation: &gw.PerModulationCount_FskModulationInfo{
-					FskModulationInfo: modInfo,
-				},
-			})
-		}
-
-		if modInfo := txInfo.GetLrFhssModulationInfo(); modInfo != nil {
-			stats.RxPacketsPerModulation = append(stats.RxPacketsPerModulation, &gw.PerModulationCount{
-				Count: c,
-				Modulation: &gw.PerModulationCount_LrFhssModulationInfo{
-					LrFhssModulationInfo: modInfo,
-				},
-			})
-		}
+		stats.RxPacketsPerModulation = append(stats.RxPacketsPerModulation, &gw.PerModulationCount{
+			Count:      c,
+			Modulation: &mod,
+		})
 	}
 
 	for bStr, c := range c.txPerModulationCount {
 		b, _ := hex.DecodeString(bStr)
-		var txInfo gw.DownlinkTXInfo
-		_ = proto.Unmarshal(b, &txInfo)
+		var mod gw.Modulation
+		_ = proto.Unmarshal(b, &mod)
 
-		if modInfo := txInfo.GetLoraModulationInfo(); modInfo != nil {
-			stats.TxPacketsPerModulation = append(stats.TxPacketsPerModulation, &gw.PerModulationCount{
-				Count: c,
-				Modulation: &gw.PerModulationCount_LoraModulationInfo{
-					LoraModulationInfo: modInfo,
-				},
-			})
-		}
-
-		if modInfo := txInfo.GetFskModulationInfo(); modInfo != nil {
-			stats.TxPacketsPerModulation = append(stats.TxPacketsPerModulation, &gw.PerModulationCount{
-				Count: c,
-				Modulation: &gw.PerModulationCount_FskModulationInfo{
-					FskModulationInfo: modInfo,
-				},
-			})
-		}
+		stats.TxPacketsPerModulation = append(stats.TxPacketsPerModulation, &gw.PerModulationCount{
+			Count:      c,
+			Modulation: &mod,
+		})
 	}
 
 	for s, c := range c.txStatusCount {

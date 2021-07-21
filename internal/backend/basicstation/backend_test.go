@@ -43,7 +43,7 @@ func (ts *BackendTestSuite) SetupTest() {
 	conf.Backend.BasicStation.Bind = "127.0.0.1:0"
 	conf.Filters.NetIDs = []string{"010203"}
 	conf.Filters.JoinEUIs = [][2]string{{"0000000000000000", "0102030405060708"}}
-	conf.Backend.StatsInterval = 30 * time.Second
+	conf.Backend.BasicStation.StatsInterval = 30 * time.Second
 	conf.Backend.BasicStation.Region = "EU868"
 	conf.Backend.BasicStation.FrequencyMin = 867000000
 	conf.Backend.BasicStation.FrequencyMax = 869000000
@@ -201,11 +201,13 @@ func (ts *BackendTestSuite) TestUplinkDataFrame() {
 		RxPacketsPerModulation: []*gw.PerModulationCount{
 			{
 				Count: 1,
-				Modulation: &gw.PerModulationCount_LoraModulationInfo{
-					LoraModulationInfo: &gw.LoRaModulationInfo{
-						Bandwidth:       125,
-						SpreadingFactor: 7,
-						CodeRate:        "4/5",
+				Modulation: &gw.Modulation{
+					Parameters: &gw.Modulation_Lora{
+						Lora: &gw.LoRaModulationInfo{
+							Bandwidth:       125,
+							SpreadingFactor: 7,
+							CodeRate:        "4/5",
+						},
 					},
 				},
 			},
@@ -283,11 +285,13 @@ func (ts *BackendTestSuite) TestJoinRequest() {
 		RxPacketsPerModulation: []*gw.PerModulationCount{
 			{
 				Count: 1,
-				Modulation: &gw.PerModulationCount_LoraModulationInfo{
-					LoraModulationInfo: &gw.LoRaModulationInfo{
-						Bandwidth:       125,
-						SpreadingFactor: 7,
-						CodeRate:        "4/5",
+				Modulation: &gw.Modulation{
+					Parameters: &gw.Modulation_Lora{
+						Lora: &gw.LoRaModulationInfo{
+							Bandwidth:       125,
+							SpreadingFactor: 7,
+							CodeRate:        "4/5",
+						},
 					},
 				},
 			},
@@ -360,11 +364,13 @@ func (ts *BackendTestSuite) TestProprietaryDataFrame() {
 		RxPacketsPerModulation: []*gw.PerModulationCount{
 			{
 				Count: 1,
-				Modulation: &gw.PerModulationCount_LoraModulationInfo{
-					LoraModulationInfo: &gw.LoRaModulationInfo{
-						Bandwidth:       125,
-						SpreadingFactor: 7,
-						CodeRate:        "4/5",
+				Modulation: &gw.Modulation{
+					Parameters: &gw.Modulation_Lora{
+						Lora: &gw.LoRaModulationInfo{
+							Bandwidth:       125,
+							SpreadingFactor: 7,
+							CodeRate:        "4/5",
+						},
 					},
 				},
 			},
@@ -448,12 +454,14 @@ func (ts *BackendTestSuite) TestDownlinkTransmitted() {
 		TxPacketsPerModulation: []*gw.PerModulationCount{
 			{
 				Count: 1,
-				Modulation: &gw.PerModulationCount_LoraModulationInfo{
-					LoraModulationInfo: &gw.LoRaModulationInfo{
-						Bandwidth:             125,
-						SpreadingFactor:       10,
-						CodeRate:              "4/5",
-						PolarizationInversion: true,
+				Modulation: &gw.Modulation{
+					Parameters: &gw.Modulation_Lora{
+						Lora: &gw.LoRaModulationInfo{
+							Bandwidth:             125,
+							SpreadingFactor:       10,
+							CodeRate:              "4/5",
+							PolarizationInversion: true,
+						},
 					},
 				},
 			},
