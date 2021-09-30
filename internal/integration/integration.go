@@ -38,6 +38,9 @@ func GetIntegration() Integration {
 }
 
 // Integration defines the interface that an integration must implement.
+/*
+与MQTT交互
+*/
 type Integration interface {
 	// SetGatewaySubscription updates the gateway subscription for the given
 	// gateway ID. The integration must implement this such that it is safe

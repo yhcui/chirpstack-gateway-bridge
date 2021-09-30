@@ -32,8 +32,8 @@ func run(cmd *cobra.Command, args []string) error {
 		setupMetrics,
 		setupMetaData,
 		setupCommands,
-		startIntegration,
-		startBackend,
+		startIntegration, // 对我们来讲就是启动MQTT服务
+		startBackend,     // 这个是接受lora设备数据的服务?  udp
 	}
 
 	for _, t := range tasks {

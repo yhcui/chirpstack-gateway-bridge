@@ -191,9 +191,9 @@ func NewBackend(conf config.Config) (*Backend, error) {
 
 // Start starts the integration.
 func (b *Backend) Start() error {
-	b.connectLoop()
+	b.connectLoop() //  连接mqtt服务
 	go b.reconnectLoop()
-	go b.subscribeLoop()
+	go b.subscribeLoop() // 订阅command topic.并向state topic publish数据
 	return nil
 }
 

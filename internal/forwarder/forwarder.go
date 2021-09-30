@@ -50,6 +50,9 @@ func gatewaySubscribeFunc(pl events.Subscribe) {
 	}(pl)
 }
 
+/*
+ 这里是实出向mqtt服务器发送消息的服务
+*/
 func uplinkFrameFunc(pl gw.UplinkFrame) {
 	go func(pl gw.UplinkFrame) {
 		var gatewayID lorawan.EUI64
