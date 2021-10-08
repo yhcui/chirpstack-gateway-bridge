@@ -227,9 +227,11 @@ func (b *Backend) isClosed() bool {
 	return b.closed
 }
 
+// 读取UDP数据、组成udpPacket、并进行片时
 func (b *Backend) readPackets() error {
 	buf := make([]byte, 65507) // max udp data size
 	for {
+		// ReadFromUDP从c读取一个UDP数据包，将有效负载拷贝到b，返回拷贝字节数和数据包来源地址。
 		i, addr, err := b.conn.ReadFromUDP(buf)
 		if err != nil {
 			if b.isClosed() {
@@ -294,6 +296,14 @@ func (b *Backend) handlePacket(up udpPacket) error {
 		return nil
 	}
 
+	/*
+		PushData
+		PushACK
+		PullData
+		PullResp
+		PullACK
+		TXACK
+	*/
 	pt, err := packets.GetPacketType(up.data)
 	if err != nil {
 		return err
@@ -448,6 +458,8 @@ func (b *Backend) handleTXACK(up udpPacket) error {
 
 func (b *Backend) handlePushData(up udpPacket) error {
 	var p packets.PushDataPacket
+
+	// 将data二进制解析为packets.PushDataPacket 类型数据
 	if err := p.UnmarshalBinary(up.data); err != nil {
 		return err
 	}
@@ -457,16 +469,20 @@ func (b *Backend) handlePushData(up udpPacket) error {
 		ProtocolVersion: p.ProtocolVersion,
 		RandomToken:     p.RandomToken,
 	}
+
+	//将ack转为二进制
 	bytes, err := ack.MarshalBinary()
 	if err != nil {
 		return err
 	}
+	// 重要，写入updSendChan
 	b.udpSendChan <- udpPacket{
 		addr: up.addr,
 		data: bytes,
 	}
 
 	// gateway stats
+	// 组装gatewaystats数据，  gateway stats 在playload中
 	stats, err := p.GetGatewayStats()
 	if err != nil {
 		return errors.Wrap(err, "get stats error")
@@ -483,11 +499,11 @@ func (b *Backend) handlePushData(up udpPacket) error {
 		} else {
 			stats.Ip = up.addr.IP.String()
 		}
-
+		// 通过integration mqtt publish 状态
 		b.handleStats(p.GatewayMAC, *stats)
 	}
 
-	// uplink frames
+	// uplink frames  重新拼装uplink frames数据
 	uplinkFrames, err := p.GetUplinkFrames(b.skipCRCCheck, b.fakeRxTime)
 	if err != nil {
 		return errors.Wrap(err, "get uplink frames error")
@@ -497,6 +513,9 @@ func (b *Backend) handlePushData(up udpPacket) error {
 	return nil
 }
 
+/*
+处理gateway stats数据,调用集成的mqtt publish
+*/
 func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
 	if conn, err := b.gateways.get(gatewayID); err == nil {
 		s := conn.stats.ExportStats()

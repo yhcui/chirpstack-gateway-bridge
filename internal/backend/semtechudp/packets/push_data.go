@@ -100,6 +100,8 @@ func (p PushDataPacket) GetUplinkFrames(skipCRCCheck bool, FakeRxInfoTime bool) 
 			continue
 		}
 
+		// Received signal information, per antenna (Optional) -- 这是啥玩意
+		// 长度为0，代表不存在RSig
 		if len(p.Payload.RXPK[i].RSig) == 0 {
 			frame, err := getUplinkFrame(p.GatewayMAC[:], p.Payload.RXPK[i], FakeRxInfoTime)
 			if err != nil {

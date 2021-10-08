@@ -63,12 +63,12 @@ func run(cmd *cobra.Command, args []string) error {
 	tasks := []func() error{
 		setLogLevel,
 		setSyslog,
-		printStartMessage,
-		setupFilters,     //设置NetId和JoinEUI过滤器。JoinEUI过滤器会过滤EUI的join请求
-		setupBackend,     // 创建一个backend服务
-		setupIntegration, //创建一个mqtt服务
-		setupForwarder,   // 给backend服务和mqtt服务设置 forwarder
-		setupMetrics,     // 配置访问Prometheus监控的量度指标
+		printStartMessage, // 打印日志
+		setupFilters,      //设置NetId和JoinEUI过滤器。JoinEUI过滤器会过滤EUI的join请求
+		setupBackend,      // 创建一个backend服务
+		setupIntegration,  //创建一个mqtt服务
+		setupForwarder,    // 给backend服务和mqtt服务设置 forwarder即执行函数.
+		setupMetrics,      // 配置访问Prometheus监控的量度指标
 		setupMetaData,
 		setupCommands,    // 设置命令执行函数。命令是下发给硬件的
 		startIntegration, // 对我们来讲就是启动MQTT服务

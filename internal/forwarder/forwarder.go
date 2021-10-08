@@ -51,7 +51,8 @@ func gatewaySubscribeFunc(pl events.Subscribe) {
 }
 
 /*
- 这里是实出向mqtt服务器发送消息的服务
+ 这里是实际向integration的mqtt服务器发送消息的服务
+ 此处为 event的up
 */
 func uplinkFrameFunc(pl gw.UplinkFrame) {
 	go func(pl gw.UplinkFrame) {
@@ -70,6 +71,7 @@ func uplinkFrameFunc(pl gw.UplinkFrame) {
 	}(pl)
 }
 
+//通过集成的mqtt发送事件状态事件
 func gatewayStatsFunc(pl gw.GatewayStats) {
 	go func(pl gw.GatewayStats) {
 		var gatewayID lorawan.EUI64
