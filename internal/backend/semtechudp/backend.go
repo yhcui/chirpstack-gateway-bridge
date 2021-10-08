@@ -101,6 +101,7 @@ func (b *Backend) Start() error {
 		b.wg.Done()
 	}()
 
+	// 这个的作用？ 感觉类似于发送response
 	go func() {
 		err := b.sendPackets()
 		if !b.isClosed() {
@@ -257,6 +258,7 @@ func (b *Backend) readPackets() error {
 	}
 }
 
+// 此处又向udp连接中进行了写数据
 func (b *Backend) sendPackets() error {
 	for p := range b.udpSendChan {
 		pt, err := packets.GetPacketType(p.data)
