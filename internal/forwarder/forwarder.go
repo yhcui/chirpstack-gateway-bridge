@@ -26,7 +26,7 @@ func Setup(conf config.Config) error {
 	if i == nil {
 		return errors.New("integration is not set")
 	}
-
+	/* 此处设置函数非常重要，后面在阅读代码时需要用到，这个地方需要很清醒的明白，这个b和i是指的什么 */
 	// setup backend callbacks
 	b.SetSubscribeEventFunc(gatewaySubscribeFunc)
 	b.SetUplinkFrameFunc(uplinkFrameFunc)
