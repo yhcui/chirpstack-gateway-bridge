@@ -39,6 +39,10 @@ func init() {
 
 var version string // set by the compiler
 
+/*
+协议为:https://github.com/Lora-net/packet_forwarder/blob/master/PROTOCOL.TXT
+阅读代码时可以结合这个来看。
+*/
 func main() {
 	cmd.Execute(version)
 }
