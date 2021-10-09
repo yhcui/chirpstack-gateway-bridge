@@ -622,6 +622,9 @@ func (b *Backend) handleRawPacketForwarderCommand(c paho.Client, msg paho.Messag
 	}
 }
 
+/*
+处理mqtt的消息
+*/
 func (b *Backend) handleCommand(c paho.Client, msg paho.Message) {
 	if strings.HasSuffix(msg.Topic(), "down") || strings.Contains(msg.Topic(), "command=down") {
 		mqttCommandCounter("down").Inc()

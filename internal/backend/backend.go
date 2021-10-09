@@ -65,7 +65,7 @@ type Backend interface {
 	// SetSubscribeEventFunc sets the Subscribe handler func.
 	SetSubscribeEventFunc(func(events.Subscribe))
 
-	// SendDownlinkFrame sends the given downlink frame.
+	// SendDownlinkFrame sends the given downlink frame. 通过写入chan，交由写入udp专用方法操作
 	SendDownlinkFrame(gw.DownlinkFrame) error
 
 	// ApplyConfiguration applies the given configuration to the gateway.
