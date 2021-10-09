@@ -69,10 +69,10 @@ func run(cmd *cobra.Command, args []string) error {
 		setupIntegration,  //创建一个mqtt服务
 		setupForwarder,    // 给backend服务和mqtt服务设置 forwarder即执行函数.
 		setupMetrics,      // 配置访问Prometheus监控的量度指标
-		setupMetaData,
-		setupCommands,    // 设置命令执行函数。命令是下发给硬件的
-		startIntegration, // 对我们来讲就是启动MQTT服务
-		startBackend,     // 启动backend服务，接受lora设备数据的服务
+		setupMetaData,     // 设置配置文件中的元数据，并执行meta_data.dynamic.commands下的命令
+		setupCommands,     // 设置命令执行函数。命令是下发给硬件的。执行commands下的命令
+		startIntegration,  // 对我们来讲就是启动MQTT服务
+		startBackend,      // 启动backend服务，接受lora设备数据的服务
 	}
 
 	for _, t := range tasks {
@@ -132,6 +132,7 @@ func setupMetrics() error {
 	return nil
 }
 
+// The meta-data will be added to every stats message sent by the ChirpStack Gateway Bridge
 func setupMetaData() error {
 	if err := metadata.Setup(config.C); err != nil {
 		return errors.Wrap(err, "setup meta-data error")

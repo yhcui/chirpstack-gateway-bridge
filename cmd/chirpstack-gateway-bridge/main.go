@@ -41,7 +41,8 @@ var version string // set by the compiler
 
 /*
 协议为:https://github.com/Lora-net/packet_forwarder/blob/master/PROTOCOL.TXT
-阅读代码时可以结合这个来看。
+配置文件: https://www.chirpstack.io/gateway-bridge/install/config/
+阅读代码时可以结合上面链接来看。
 */
 func main() {
 	cmd.Execute(version)
