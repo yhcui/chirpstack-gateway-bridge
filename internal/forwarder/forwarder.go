@@ -97,6 +97,9 @@ func gatewayStatsFunc(pl gw.GatewayStats) {
 	}(pl)
 }
 
+/*
+处理没有错误的 TX_ACK
+*/
 func downlinkTxAckFunc(pl gw.DownlinkTXAck) {
 	go func(pl gw.DownlinkTXAck) {
 		var gatewayID lorawan.EUI64

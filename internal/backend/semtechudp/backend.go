@@ -320,8 +320,10 @@ func (b *Backend) handlePacket(up udpPacket) error {
 
 	switch pt {
 	case packets.PushData:
-		return b.handlePushData(up)
+		return b.handlePushData(up) // ？
 	case packets.PullData:
+		// The gateway must periodically send PULL_DATA packets to be sure the network  route stays open for the server to be used at any time.
+		// 并不向NS发送数据，仅仅是为了可以接受服务器的下行消息
 		return b.handlePullData(up)
 	case packets.TXACK:
 		return b.handleTXACK(up)
@@ -421,6 +423,7 @@ func (b *Backend) handleTXACK(up udpPacket) error {
 		// can we retry?
 		if itemIndex < len(frame.Items)-1 {
 			// retry with next option
+			// 即重新发送一次PULL_RESP
 			return b.sendDownlinkFrame(frame, itemIndex+1, txAckItems)
 		}
 
