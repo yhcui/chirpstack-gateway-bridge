@@ -631,6 +631,7 @@ func (b *Backend) handleCommand(c paho.Client, msg paho.Message) {
 		b.handleDownlinkFrame(c, msg)
 	} else if strings.HasSuffix(msg.Topic(), "config") || strings.Contains(msg.Topic(), "command=config") {
 		mqttCommandCounter("config").Inc()
+		// 什么也不做，没有实现
 		b.handleGatewayConfiguration(c, msg)
 	} else if strings.HasSuffix(msg.Topic(), "exec") || strings.Contains(msg.Topic(), "command=exec") {
 		b.handleGatewayCommandExecRequest(c, msg)
