@@ -38,7 +38,7 @@ type Backend struct {
 	gatewaysMux             sync.RWMutex
 	gateways                map[lorawan.EUI64]struct{}
 	gatewaysSubscribedMux   sync.Mutex
-	gatewaysSubscribed      map[lorawan.EUI64]struct{}
+	gatewaysSubscribed      map[lorawan.EUI64]struct{} // 需要移除的订阅gateway
 	terminateOnConnectError bool
 	stateRetained           bool
 
@@ -452,14 +452,14 @@ func (b *Backend) subscribeLoop() {
 		b.gatewaysMux.RLock()
 		b.gatewaysSubscribedMux.Lock()
 
-		// subscribe
+		// subscribe 需要订阅的gatewayId,在packets.PullData中的业务逻辑中写入
 		for gatewayID := range b.gateways {
 			if _, ok := b.gatewaysSubscribed[gatewayID]; !ok {
 				subscribe = append(subscribe, gatewayID)
 			}
 		}
 
-		// unsubscribe
+		// unsubscribe 需要移除订阅的gatewayId,在订阅失败时赋值为空struct,仅仅用来判断
 		for gatewayID := range b.gatewaysSubscribed {
 			if _, ok := b.gateways[gatewayID]; !ok {
 				unsubscribe = append(unsubscribe, gatewayID)

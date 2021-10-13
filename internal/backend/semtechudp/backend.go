@@ -302,8 +302,9 @@ func (b *Backend) handlePacket(up udpPacket) error {
 		PushData
 		PushACK
 		PullData
-		PullResp
 		PullACK
+
+		PullResp
 		TXACK
 	*/
 	pt, err := packets.GetPacketType(up.data)

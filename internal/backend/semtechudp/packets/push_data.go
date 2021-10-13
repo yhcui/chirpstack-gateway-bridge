@@ -26,9 +26,9 @@ var lrFHSSDataRateRegex = regexp.MustCompile(`M0CW(\d+)`)
 // PushDataPacket type is used by the gateway mainly to forward the RF packets
 // received, and associated metadata, to the server.
 type PushDataPacket struct {
-	ProtocolVersion uint8
-	RandomToken     uint16
-	GatewayMAC      lorawan.EUI64
+	ProtocolVersion uint8         // 协议版本
+	RandomToken     uint16        // 随机token
+	GatewayMAC      lorawan.EUI64 // 网关mac地址
 	Payload         PushDataPayload
 }
 
